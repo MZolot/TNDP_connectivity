@@ -1,6 +1,3 @@
-import GA_time_and_cost_basic
-
-
 class GALoggerTxt:
     def __init__(self, file_name, GA) -> None:
         self.file = open(file_name, 'w')
