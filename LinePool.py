@@ -45,8 +45,6 @@ def get_line_pool(graph,
     demand_threshold = np.percentile(
         [l['demand'] for l in pool_tmp], theta * 100)
 
-    print(lines_per_stop)
-
     final_pool = []
     for line in pool_tmp:
         if line['demand'] >= demand_threshold:
@@ -58,7 +56,5 @@ def get_line_pool(graph,
         else:
             for stop in line['path']:
                 lines_per_stop[stop] -= 1
-
-    print(lines_per_stop)
 
     return final_pool
