@@ -1,4 +1,4 @@
-import GA_time_and_cost_basic as GA_module
+from TNDP import TNDP, Network
 
 import random
 import numpy as np
@@ -23,23 +23,23 @@ def repair_individual(x, max_routes):
 
 
 class TNDPProblem(Problem):
-    def __init__(self, K, GA: GA_module.GeneticAlgorithm):
+    def __init__(self, K, TNDP: TNDP):
         super().__init__(
             n_var=K,
             n_obj=2,
             xl=-1,
-            xu=len(GA.line_pool)-1,
+            xu=len(TNDP.line_pool)-1,
             type_var=int
         )
-        self.GA = GA
+        self.TNDP = TNDP
 
     def _evaluate(self, x, out, *args, **kwargs):
         fitness = []
 
         for individual in x:
             individual_network = self._ids_to_network(individual)
-            f1 = self.GA.evaluate_total_time(individual_network)
-            f2 = self.GA.evaluate_cost(individual_network)
+            f1 = self.TNDP.evaluate_total_time(individual_network)
+            f2 = self.TNDP.evaluate_cost(individual_network)
             fitness.append([f1, f2])
 
         out["F"] = np.array(fitness)
@@ -47,8 +47,8 @@ class TNDPProblem(Problem):
     def _ids_to_network(self, route_ids):
         routes = []
         for id in route_ids:
-            routes.append(self.GA.line_pool[id])
-        return GA_module.Network(routes)
+            routes.append(self.TNDP.line_pool[id])
+        return Network(routes)
 
 
 class TNDPNetworkRepair(Repair):
@@ -63,9 +63,9 @@ class TNDPNetworkRepair(Repair):
 
 
 class TNDPSampling(Sampling):
-    def __init__(self, K, GA: GA_module.GeneticAlgorithm) -> None:
+    def __init__(self, K, TNDP: TNDP) -> None:
         super().__init__()
-        self.GA = GA
+        self.TNDP = TNDP
         self.K = K
         self.vtype = "int"
         self.repair = None
@@ -76,7 +76,7 @@ class TNDPSampling(Sampling):
 
         for i in range(n_samples):
             m = random.randint(1, self.K)
-            routes = random.sample(range(len(self.GA.line_pool)), m)
+            routes = random.sample(range(len(self.TNDP.line_pool)), m)
             X[i, :m] = routes
 
         return X
@@ -136,7 +136,7 @@ class TNDPMutation(Mutation):
 
     def _add_route(self, x, routes, free_slots):
         if free_slots == 0:
-            return x  # некуда добавлять
+            return x 
 
         available = list(set(range(len(self.all_routes))) - set(routes))
         if not available:
