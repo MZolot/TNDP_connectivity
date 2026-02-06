@@ -217,6 +217,10 @@ class NetworkOnMandlPlotter(MandlPlotter):
 
     def plot_routes(self, routes, route_width=3, cell_size = 5):
         n = len(routes)
+        
+        if n == 1:
+            self.plot_network(routes, figsize=(cell_size, cell_size * 0.8))
+            return
 
         # размеры сетки
         cols = math.ceil(math.sqrt(n))
