@@ -1,12 +1,25 @@
 import networkx as nx
 
 
-class Network:
+class TndpNetwork:
     def __init__(self, routes):
         self.routes = routes
-        self.total_fintess: float = -1 
+        self.total_fintess: float = -1
         self.objective_fitnesses = {}
         self.multimodal_graph: nx.Graph | None = None
+
+    def __len__(self) -> int:
+        return len(self.routes)
+
+    def __str__(self) -> str:
+        return f'TNDP network with {len(self.routes)}, weighted fitness: {self.total_fintess}'
+    
+    def __repr__(self) -> str:
+        tab = '             '
+        routes = f'Routes={self.__len__()}'
+        fitness = f'weighted fitness: {self.total_fintess}'
+        objectives = f'objective fitnesses: {self.objective_fitnesses}'
+        return f'TNDP Network({routes};\n{tab}{fitness};\n{tab}{objectives})'
 
 
 class TNDP:
@@ -17,7 +30,6 @@ class TNDP:
                  pedestrian_graph,
                  od_matrix,
                  line_pool,
-                 initial_network_size=10,
                  max_network_size=20,
                  time_weight=10.0,
                  cost_weight=1.0) -> None:
@@ -26,7 +38,6 @@ class TNDP:
         self.pedestrian_graph = pedestrian_graph
         self.od_matrix = od_matrix
         self.line_pool = line_pool
-        self.initial_network_size = initial_network_size
         self.max_network_size = max_network_size
         self.time_weight = time_weight
         self.cost_weight = cost_weight
@@ -37,7 +48,7 @@ class TNDP:
     def route_node(self, v, route_id):
         return (self, v, route_id)
 
-    def build_multimodal_graph(self, network: Network):
+    def build_multimodal_graph(self, network: TndpNetwork):
         if network.multimodal_graph is not None:
             return network.multimodal_graph
 
@@ -108,13 +119,13 @@ class TNDP:
                                        self.walk_node(v),
                                        weight="weight")
 
-    def evaluate_total_time(self, network: Network):
+    def evaluate_total_time(self, network: TndpNetwork):
         if 'time' in network.objective_fitnesses:
             return network.objective_fitnesses['time']
-        
+
         multimodal_graph = self.build_multimodal_graph(network)
 
-        total = 0
+        total_time = 0
 
         for origin in self.od_matrix.index:
             for destination, demand in self.od_matrix.loc[origin].items():
@@ -122,17 +133,19 @@ class TNDP:
                     continue
                 length = self.get_shortest_path_time(
                     multimodal_graph, origin, destination)
-                total += demand * length
+                total_time += demand * length
+                
+        network.objective_fitnesses['time'] = total_time
 
-        return total
+        return total_time
 
     def edge_cost(self, edge_length):
         return edge_length * self.COST_OPERATIONAL
 
-    def evaluate_cost(self, network: Network):
+    def evaluate_cost(self, network: TndpNetwork):
         if 'cost' in network.objective_fitnesses:
             return network.objective_fitnesses['cost']
-        
+
         total_cost = 0
 
         for route in network.routes:
@@ -143,10 +156,19 @@ class TNDP:
                 weight = self.graph.get_edge_data(u, v)["weight"]
 
                 total_cost = total_cost + self.edge_cost(weight)
+                
+        network.objective_fitnesses['cost'] = total_cost
 
         return total_cost
 
-    def evaluate_fitness(self, network: Network) -> float:
+    def evaluate_fitness(self, network: TndpNetwork) -> float:
         if network.total_fintess != -1:
             return network.total_fintess
-        return (self.time_weight * self.evaluate_total_time(network)) + (self.cost_weight * self.evaluate_cost(network))
+        
+        weighted_time_fitness = self.time_weight * self.evaluate_total_time(network)
+        weighted_cost_fitness = self.cost_weight * self.evaluate_cost(network)
+        total_fintess = weighted_time_fitness + weighted_cost_fitness
+
+        network.total_fintess = total_fintess
+        
+        return total_fintess

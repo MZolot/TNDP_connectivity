@@ -215,14 +215,14 @@ class NetworkOnMandlPlotter(MandlPlotter):
         plt.axis("off")
         plt.show()
 
-    def plot_routes(self, routes, route_width=3):
+    def plot_routes(self, routes, route_width=3, cell_size = 5):
         n = len(routes)
 
         # размеры сетки
         cols = math.ceil(math.sqrt(n))
         rows = math.ceil(n / cols)
 
-        fig, axes = plt.subplots(rows, cols, figsize=(5 * cols, 5 * rows))
+        fig, axes = plt.subplots(rows, cols, figsize=(cell_size * cols, cell_size * rows))
         axes = axes.flatten()
 
         colors = plt.cm.tab20.colors  # type: ignore

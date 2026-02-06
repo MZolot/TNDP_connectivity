@@ -1,4 +1,4 @@
-from TNDP import TNDP, Network
+from TNDP import TNDP, TndpNetwork
 
 import random
 import numpy as np
@@ -22,7 +22,7 @@ def repair_individual(x, max_routes):
     return x_new
 
 
-class TNDPProblem(Problem):
+class TndpProblem(Problem):
     def __init__(self, K, TNDP: TNDP):
         super().__init__(
             n_var=K,
@@ -48,10 +48,10 @@ class TNDPProblem(Problem):
         routes = []
         for id in route_ids:
             routes.append(self.TNDP.line_pool[id])
-        return Network(routes)
+        return TndpNetwork(routes)
 
 
-class TNDPNetworkRepair(Repair):
+class TndpNetworkRepair(Repair):
     def __init__(self, max_routes) -> None:
         super().__init__()
         self.max_routes = max_routes
@@ -62,7 +62,7 @@ class TNDPNetworkRepair(Repair):
         return X
 
 
-class TNDPSampling(Sampling):
+class TndpSampling(Sampling):
     def __init__(self, K, TNDP: TNDP) -> None:
         super().__init__()
         self.TNDP = TNDP
@@ -82,7 +82,7 @@ class TNDPSampling(Sampling):
         return X
 
 
-class TNDPMutation(Mutation):
+class TndpMutation(Mutation):
     def __init__(
         self,
         all_routes,
@@ -173,7 +173,7 @@ class TNDPMutation(Mutation):
         return x
 
 
-class TNDPCrossover(Crossover):
+class TndpCrossover(Crossover):
     def __init__(self):
         super().__init__(2, 2)
 
@@ -226,3 +226,15 @@ class TNDPCrossover(Crossover):
         x[:len(routes)] = routes
         # np.random.shuffle(x)
         return x
+    
+    
+def _get_active_routes(x):
+    return [r for r in x if r != -1]
+
+def solution_to_Network(TNDP: TNDP, solution):
+    route_ids = _get_active_routes(solution)
+    routes = [TNDP.line_pool[id] for id in route_ids]
+    return TndpNetwork(routes)
+        
+    
+    

@@ -1,116 +1,33 @@
 import random
-import networkx as nx
 
 import loggers
-
-
-class Network:
-    def __init__(self, routes):
-        self.routes = routes
-        self.fitness = None
+from TNDP import TNDP, TndpNetwork
 
 
 class GeneticAlgorithm:
-    COST_OPERATIONAL = 10000
-    MAX_ROUTES = 20
 
     def __init__(self,
-                 graph,
-                 pedestrian_graph,
-                 od_matrix,
-                 line_pool,
-                 population_size,
-                 network_size,
+                 tndp: TNDP,
+                 initial_population_size,
+                 initial_population_network_size,
                  n_generations,
-                 time_coef=10.0,
-                 cost_coef=1.0,
                  elitism_percent=0.2) -> None:
 
-        self.graph = graph
-        self.pedestrian_graph = pedestrian_graph
-        self.od_matrix = od_matrix
-        self.line_pool = line_pool
-        self.population_size = population_size
-        self.network_size = network_size
+        self.tndp = tndp
+        self.population_size = initial_population_size
+        self.network_size = initial_population_network_size
         self.n_generations = n_generations
-        self.time_coef = time_coef
-        self.cost_coef = cost_coef
         self.elitism_percent = elitism_percent
-        self.elite_size = int(network_size * elitism_percent)
+        self.elite_size = int(
+            initial_population_network_size * elitism_percent)
 
-    def walk_node(self, v):
+    def _walk_node(self, v):
         return (v, None)
 
-    def route_node(self, v, route_id):
+    def _route_node(self, v, route_id):
         return (self, v, route_id)
 
-    def build_multimodal_graph(self, network: Network):
-        network_graph = nx.Graph()
-
-        for u, v, data in self.pedestrian_graph.edges(data=True):
-            w = data["weight"]
-
-            network_graph.add_edge(
-                self.walk_node(u),
-                self.walk_node(v),
-                weight=w,
-                mode="walk"
-            )
-
-        transfer_time = 0
-        route_id = 0
-        for route in network.routes:
-            stops = route['path']
-            for i in range(len(stops) - 1):
-                u = stops[i]
-                v = stops[i + 1]
-                weight = self.graph.get_edge_data(u, v)["weight"]
-
-                network_graph.add_edge(self.route_node(u, route_id),
-                                       self.route_node(v, route_id),
-                                       weight=weight,
-                                       mode="ride"
-                                       )
-
-                network_graph.add_edge(
-                    self.walk_node(u),
-                    self.route_node(u, route_id),
-                    weight=transfer_time,
-                    mode="transfer"
-                )
-
-                network_graph.add_edge(
-                    self.route_node(u, route_id),
-                    self.walk_node(u),
-                    weight=transfer_time,
-                    mode="transfer"
-                )
-
-            network_graph.add_edge(
-                self.walk_node(v),
-                self.route_node(v, route_id),
-                weight=transfer_time,
-                mode="transfer"
-            )
-
-            network_graph.add_edge(
-                self.route_node(v, route_id),
-                self.walk_node(v),
-                weight=transfer_time,
-                mode="transfer"
-            )
-
-            route_id += 1
-
-        return network_graph
-
-    def get_shortest_path_time(self, multimodal_graph, u, v):
-        return nx.shortest_path_length(multimodal_graph,
-                                       self.walk_node(u),
-                                       self.walk_node(v),
-                                       weight="weight")
-
-    def remove_duplicate_routes(self, routes):
+    def _remove_duplicate_routes(self, routes):
         unique = []
         seen = set()
 
@@ -122,117 +39,81 @@ class GeneticAlgorithm:
 
         return unique
 
-    def get_random_route(self):
-        return random.choice(self.line_pool)
-
-    # --- FITNESS EVALUATION ---
-
-    def evaluate_total_time(self, network: Network):
-        multimodal_graph = self.build_multimodal_graph(network)
-
-        total = 0
-
-        for origin in self.od_matrix.index:
-            for destination, demand in self.od_matrix.loc[origin].items():
-                if demand <= 0:
-                    continue
-                length = self.get_shortest_path_time(
-                    multimodal_graph, origin, destination)
-                total += demand * length
-
-        return total
-
-    def edge_cost(self, edge_length):
-        return edge_length * self.COST_OPERATIONAL
-
-    def evaluate_cost(self, network: Network):
-        total_cost = 0
-
-        for route in network.routes:
-            stops = route['path']
-            for i in range(len(stops) - 1):
-                u = stops[i]
-                v = stops[i + 1]
-                weight = self.graph.get_edge_data(u, v)["weight"]
-
-                total_cost = total_cost + self.edge_cost(weight)
-
-        return total_cost
-
-    def evaluate_fitness(self, network: Network) -> float:
-        return (self.time_coef * self.evaluate_total_time(network)) + (self.cost_coef * self.evaluate_cost(network))
+    def _get_random_route(self):
+        return random.choice(self.tndp.line_pool)
 
     # --- CROSSOVER ---
 
-    def tournament_selection(self, population, k=3):
+    def _tournament_selection(self, population, k=3):
         candidates = random.sample(range(len(population)), k)
         best = min(
-            candidates, key=lambda i: self.evaluate_fitness(population[i]))
+            candidates, key=lambda i: self.tndp.evaluate_fitness(population[i]))
         return population[best]
 
-    def get_parents(self, population, k=3):
-        p1 = self.tournament_selection(population, k)
-        p2 = self.tournament_selection(population, k)
+    def _get_parents(self, population, k=3):
+        p1 = self._tournament_selection(population, k)
+        p2 = self._tournament_selection(population, k)
 
         while p2 is p1:
-            p2 = self.tournament_selection(population, k)
+            p2 = self._tournament_selection(population, k)
 
         return p1, p2
 
-    def crossover(self, parent1: Network, parent2: Network) -> Network:
+    def _crossover(self, parent1: TndpNetwork, parent2: TndpNetwork) -> TndpNetwork:
         cut1 = random.randint(0, len(parent1.routes) - 1)
         cut2 = random.randint(0, len(parent2.routes) - 1)
 
         # print(f'from parent 1: {cut1}, from parent 2: {cut2}')
 
         child_routes = parent1.routes[:cut1] + parent2.routes[cut2:]
-        child_routes = self.remove_duplicate_routes(child_routes)[
-            :self.MAX_ROUTES]
-        return Network(child_routes)
+        child_routes = self._remove_duplicate_routes(child_routes)[
+            :self.tndp.max_network_size]
+        return TndpNetwork(child_routes)
 
     # --- MUTATIONS ---
 
-    def mutate_add(self, network: Network, p=0.5):
-        if random.random() < p and len(network.routes) < self.MAX_ROUTES:
-            network.routes.append(self.get_random_route())
+    def _mutate_add(self, network: TndpNetwork, p=0.5):
+        if random.random() < p and len(network.routes) < self.tndp.max_network_size:
+            network.routes.append(self._get_random_route())
             # print('mutate add')
 
-    def mutate_replace(self, network: Network, p=0.5):
+    def _mutate_replace(self, network: TndpNetwork, p=0.5):
         if random.random() < p and len(network.routes) > 0:
             i = random.randrange(len(network.routes))
-            new_route = self.get_random_route()
+            new_route = self._get_random_route()
             network.routes[i] = new_route
             # print('mutate replace')
 
-    def mutate_remove(self, network: Network, p=0.1):
+    def _mutate_remove(self, network: TndpNetwork, p=0.1):
         if random.random() < p and len(network.routes) > 1:
             i = random.randrange(len(network.routes))
             network.routes.pop(i)
             # print('mutate remove')
 
-    def mutate(self, network: Network):
-        self.mutate_replace(network)
-        self.mutate_add(network)
-        self.mutate_remove(network)
+    def _mutate(self, network: TndpNetwork):
+        self._mutate_replace(network)
+        self._mutate_add(network)
+        self._mutate_remove(network)
 
-        network.routes = self.remove_duplicate_routes(network.routes)
+        network.routes = self._remove_duplicate_routes(network.routes)
 
     # --- ALGORITHM ---
 
-    def generate_initial_population(self):
+    def _generate_initial_population(self):
         population = []
         for i in range(self.population_size):
-            routes = [random.choice(self.line_pool)
+            routes = [random.choice(self.tndp.line_pool)
                       for i in range(self.network_size)]
-            population.append(Network(routes))
+            population.append(TndpNetwork(routes))
         return population
 
-    def get_best_solution(self, population):
-        best_network = min(population, key=lambda i: self.evaluate_fitness(i))
-        return best_network, self.evaluate_fitness(best_network)
+    def _get_best_solution(self, population):
+        best_network = min(
+            population, key=lambda i: self.tndp.evaluate_fitness(i))
+        return best_network, self.tndp.evaluate_fitness(best_network)
 
-    def get_elite(self, population):
-        fitnesses = [self.evaluate_fitness(sol) for sol in population]
+    def _get_elite(self, population):
+        fitnesses = [self.tndp.evaluate_fitness(sol) for sol in population]
 
         sorted_pop = [
             sol for sol, fit in
@@ -243,14 +124,14 @@ class GeneticAlgorithm:
     def generate_solution(self):
         log = loggers.GALoggerTxt('log.txt', self)
 
-        population = self.generate_initial_population()
-        total_best_solution, total_best_fitness = self.get_best_solution(
+        population = self._generate_initial_population()
+        total_best_solution, total_best_fitness = self._get_best_solution(
             population)
         log.log_generation('INITIAL GENERATION',
                            population, total_best_fitness)
 
         for gen in range(self.n_generations):
-            gen_best_solution, gen_best_fitness = self.get_best_solution(
+            gen_best_solution, gen_best_fitness = self._get_best_solution(
                 population)
 
             log.log_generation(
@@ -261,12 +142,12 @@ class GeneticAlgorithm:
                 total_best_solution = gen_best_solution
 
             # new_population = []
-            new_population = self.get_elite(population)
+            new_population = self._get_elite(population)
 
             while len(new_population) < self.population_size:
-                parents = self.get_parents(population, k=3)
-                child = self.crossover(parents[0], parents[1])
-                self.mutate(child)
+                parents = self._get_parents(population, k=3)
+                child = self._crossover(parents[0], parents[1])
+                self._mutate(child)
                 new_population.append(child)
 
             population = new_population
