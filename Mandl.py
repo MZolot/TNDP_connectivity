@@ -4,8 +4,11 @@ import networkx as nx
 
 class MandlNetwork:
     def __init__(self) -> None:
-        # --- Graph initialization ---
+        self._init_graph()
+        self._init_od_matrix()
+        self._init_pedestrian_graph()
 
+    def _init_graph(self):
         nodes_df = pd.read_csv("data/mandl/mandl1_nodes.csv")
         edges_df = pd.read_csv("data/mandl/mandl1_links.csv")
 
@@ -24,13 +27,11 @@ class MandlNetwork:
             self.graph.add_edge(source, target, weight=weight)
 
         # Vertexes positions for visualisation
-        self.vertex_position = {i: (self.graph.nodes[i]["x"], self.graph.nodes[i]["y"]) for i in range(
+        self.vertex_positions = {i: (self.graph.nodes[i]["x"], self.graph.nodes[i]["y"]) for i in range(
             1, len(self.graph.nodes)+1)}
 
-        # --- Matrix initialization ---
-
+    def _init_od_matrix(self):
         od_df = pd.read_csv("data/mandl/mandl1_demand.csv")
-
         self.od_matrix = od_df.pivot(
             index='from', columns='to', values='demand').fillna(0)
         all_nodes = range(1, 16)
@@ -38,8 +39,7 @@ class MandlNetwork:
             index=all_nodes, columns=all_nodes, fill_value=0)
         self.od_matrix = self.od_matrix.astype(int)
 
-        # --- Pedestrian version ---
-
+    def _init_pedestrian_graph(self):
         self.graph_pedestrian = self.graph.copy()
         for _, _, data in self.graph_pedestrian.edges(data=True):
             if 'weight' in data:

@@ -1,4 +1,5 @@
 import networkx as nx
+import numpy as np
 
 
 class TndpNetwork:
@@ -13,17 +14,17 @@ class TndpNetwork:
 
     def __str__(self) -> str:
         return f'TNDP network with {len(self.routes)}, weighted fitness: {self.total_fintess}'
-    
+
     def __repr__(self) -> str:
         tab = '             '
         routes = f'Routes={self.__len__()}'
-        fitness = f'weighted fitness: {self.total_fintess}'
-        objectives = f'objective fitnesses: {self.objective_fitnesses}'
+        fitness = f'weighted fitness: {self.total_fintess:.0f}'
+        objectives = [f'{i}: {self.objective_fitnesses[i]:.3f}' for i in self.objective_fitnesses.keys()]
         return f'TNDP Network({routes};\n{tab}{fitness};\n{tab}{objectives})'
 
 
 class TNDP:
-    COST_OPERATIONAL = 10000
+    COST_OPERATIONAL = 1000
 
     def __init__(self,
                  graph,
@@ -31,8 +32,9 @@ class TNDP:
                  od_matrix,
                  line_pool,
                  max_network_size=20,
-                 time_weight=10.0,
-                 cost_weight=1.0) -> None:
+                 time_weight=1.0,
+                 cost_weight=1.0,
+                 connectivity_weight = 10000.0) -> None:
 
         self.graph = graph
         self.pedestrian_graph = pedestrian_graph
@@ -41,12 +43,36 @@ class TNDP:
         self.max_network_size = max_network_size
         self.time_weight = time_weight
         self.cost_weight = cost_weight
+        self.connectivity_weight = connectivity_weight
+        self._shortest_path_times = self._calculate_shortest_paths_for_graph(self.graph)
+
+    def _calculate_shortest_paths_for_graph(self, graph):
+        n = graph.number_of_nodes()
+        dist_matrix = np.full((n + 1, n + 1), np.inf)
+
+        nodes = sorted(graph.nodes())
+
+        for i, source in enumerate(nodes):
+            lengths = nx.single_source_dijkstra_path_length(
+                graph,
+                source,
+                weight='weight'
+            )
+
+            for j, target in enumerate(nodes):
+                if target in lengths:
+                    dist_matrix[i + 1, j + 1] = lengths[target]
+
+        return dist_matrix
+    
+    def get_shortest_path_time_in_mandl(self, u, v):
+        return self._shortest_path_times[u, v]
 
     def walk_node(self, v):
         return (v, None)
 
     def route_node(self, v, route_id):
-        return (self, v, route_id)
+        return (v, route_id)
 
     def build_multimodal_graph(self, network: TndpNetwork):
         if network.multimodal_graph is not None:
@@ -113,7 +139,7 @@ class TNDP:
 
         return network_graph
 
-    def get_shortest_path_time(self, multimodal_graph, u, v):
+    def get_shortest_path_time_in_multimodal(self, multimodal_graph, u, v):
         return nx.shortest_path_length(multimodal_graph,
                                        self.walk_node(u),
                                        self.walk_node(v),
@@ -131,10 +157,10 @@ class TNDP:
             for destination, demand in self.od_matrix.loc[origin].items():
                 if demand <= 0:
                     continue
-                length = self.get_shortest_path_time(
+                length = self.get_shortest_path_time_in_multimodal(
                     multimodal_graph, origin, destination)
                 total_time += demand * length
-                
+
         network.objective_fitnesses['time'] = total_time
 
         return total_time
@@ -156,19 +182,45 @@ class TNDP:
                 weight = self.graph.get_edge_data(u, v)["weight"]
 
                 total_cost = total_cost + self.edge_cost(weight)
-                
+
         network.objective_fitnesses['cost'] = total_cost
 
         return total_cost
 
+    def evaluate_connectivity(self, network: TndpNetwork):
+        if 'connectivity' in network.objective_fitnesses:
+            return network.objective_fitnesses['connectivity']
+        
+        if network.multimodal_graph is None:
+            mm_graph = self.build_multimodal_graph(network)
+        else:
+            mm_graph = network.multimodal_graph
+            
+        total_connectivity = 0
+        
+        n = self.graph.number_of_nodes()
+        for i in range(1, n + 1):
+            for j in range(i + 1, n + 1):
+                base_time = self._shortest_path_times[i, j]
+                network_time = self.get_shortest_path_time_in_multimodal(mm_graph, i, j)
+                total_connectivity += network_time / base_time
+                
+        p = (n * (n - 1)) / 2
+        
+        network.objective_fitnesses['connectivity'] = total_connectivity / p
+        
+        return total_connectivity / p
+
     def evaluate_fitness(self, network: TndpNetwork) -> float:
         if network.total_fintess != -1:
             return network.total_fintess
-        
-        weighted_time_fitness = self.time_weight * self.evaluate_total_time(network)
+
+        weighted_time_fitness = self.time_weight * \
+            self.evaluate_total_time(network)
         weighted_cost_fitness = self.cost_weight * self.evaluate_cost(network)
-        total_fintess = weighted_time_fitness + weighted_cost_fitness
+        weighted_connectivity_fitness = self.connectivity_weight * self.evaluate_connectivity(network)
+        total_fintess = weighted_time_fitness + weighted_cost_fitness + weighted_connectivity_fitness
 
         network.total_fintess = total_fintess
-        
+
         return total_fintess
