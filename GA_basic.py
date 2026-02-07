@@ -127,6 +127,7 @@ class GeneticAlgorithm:
         population = self._generate_initial_population()
         total_best_solution, total_best_fitness = self._get_best_solution(
             population)
+        best_solution_gen = 0
         log.log_generation('INITIAL GENERATION',
                            population, total_best_fitness)
 
@@ -140,6 +141,7 @@ class GeneticAlgorithm:
             if gen_best_fitness < total_best_fitness:
                 total_best_fitness = gen_best_fitness
                 total_best_solution = gen_best_solution
+                best_solution_gen = gen
 
             # new_population = []
             new_population = self._get_elite(population)
@@ -155,4 +157,4 @@ class GeneticAlgorithm:
         log.log_result(total_best_fitness)
         log.close_log()
 
-        return total_best_solution, total_best_fitness
+        return total_best_solution, total_best_fitness, best_solution_gen
