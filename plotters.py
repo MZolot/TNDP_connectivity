@@ -8,6 +8,9 @@ import networkx as nx
 import seaborn as sns
 import matplotlib.pyplot as plt
 from matplotlib.collections import LineCollection
+import geopandas as gpd
+import contextily as ctx
+import osmnx as ox
 
 
 class MandlPlotter():
@@ -30,7 +33,7 @@ class MandlPlotter():
                                      edge_labels=edge_labels)
         plt.show()
 
-    def plot_od_matrix(self, cmap=plt.cm.viridis, figsize=(8,8)):  # type: ignore
+    def plot_od_matrix(self, cmap=plt.cm.viridis, figsize=(8, 8)):  # type: ignore
         plt.figure(figsize=figsize)
         sns.heatmap(
             self.network.od_matrix,
@@ -215,9 +218,9 @@ class NetworkOnMandlPlotter(MandlPlotter):
         plt.axis("off")
         plt.show()
 
-    def plot_routes(self, routes, route_width=3, cell_size = 5):
+    def plot_routes(self, routes, route_width=3, cell_size=5):
         n = len(routes)
-        
+
         if n == 1:
             self.plot_network(routes, figsize=(cell_size, cell_size * 0.8))
             return
@@ -226,7 +229,8 @@ class NetworkOnMandlPlotter(MandlPlotter):
         cols = math.ceil(math.sqrt(n))
         rows = math.ceil(n / cols)
 
-        fig, axes = plt.subplots(rows, cols, figsize=(cell_size * cols, cell_size * rows))
+        fig, axes = plt.subplots(rows, cols, figsize=(
+            cell_size * cols, cell_size * rows))
         axes = axes.flatten()
 
         colors = plt.cm.tab20.colors  # type: ignore
@@ -353,4 +357,49 @@ class NetworkOnMandlPlotter(MandlPlotter):
         ax.set_title("Edge usage by routes")
         ax.axis("off")
         plt.tight_layout()
+        plt.show()
+
+
+class CityPlotter():
+    def plot_boundary(self, gdf):
+        gdf.to_crs(epsg=3857).plot(figsize=(8, 8),
+                                   #    edgecolor='red',
+                                   #    color='none',
+                                   linewidth=3)
+
+    def plot_boundary_on_map(self, gdf):
+        ax = (gdf.to_crs(epsg=3857)
+              .plot(figsize=(8, 8),
+                    edgecolor='red',
+                    color='none',
+                    linewidth=3))
+        ctx.add_basemap(ax)
+
+    def plot_streets_graph(self, graph, ax=None, figsize=(8,8)):
+        nodes, edges = ox.graph_to_gdfs(graph)
+        if ax is None:
+            _, ax = plt.subplots(figsize=figsize)
+        edges.plot(ax=ax, linewidth=0.5, color="gray")
+        nodes.plot(ax=ax, color="blue", markersize=2)
+
+    def plot_streets_graph_on_map(self, graph, boundary_gdf=None, ax=None, figsize=(8,8)):
+        nodes, edges = ox.graph_to_gdfs(graph)
+        nodes = nodes.to_crs(epsg=3857)
+        edges = edges.to_crs(epsg=3857)
+
+        if ax is None:
+            _, ax = plt.subplots(figsize=figsize)
+
+        if boundary_gdf is not None:
+            boundary_gdf.to_crs(epsg=3857).plot(ax=ax,
+                                                figsize=(8, 8),
+                                                edgecolor='red',
+                                                color='none',
+                                                linewidth=3)
+
+        edges.plot(ax=ax, linewidth=0.5, color="gray")
+        nodes.plot(ax=ax, color="blue", markersize=2)
+
+        ctx.add_basemap(ax)
+        ax.set_axis_off()
         plt.show()
