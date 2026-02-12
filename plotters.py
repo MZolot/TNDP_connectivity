@@ -5,12 +5,14 @@ from collections import defaultdict
 
 import numpy as np
 import networkx as nx
-import seaborn as sns
-import matplotlib.pyplot as plt
-from matplotlib.collections import LineCollection
 import geopandas as gpd
 import contextily as ctx
 import osmnx as ox
+import seaborn as sns
+import matplotlib.pyplot as plt
+import matplotlib.cm as cm
+import matplotlib.colors as mcolors
+from matplotlib.collections import LineCollection
 
 
 class MandlPlotter():
@@ -32,6 +34,40 @@ class MandlPlotter():
                                      self.pos,
                                      edge_labels=edge_labels)
         plt.show()
+        
+    def plot_colored_mandl(self, values, cmap='viridis', font_color='white', vmin = 1.0, vmax = 2.0):        
+        _, ax = plt.subplots()
+        
+        nx.draw(
+            self.graph,
+            self.pos,
+            ax=ax,
+            with_labels=True,
+            node_color=values,
+            cmap=cmap, 
+            vmin=vmin,
+            vmax=vmax,
+            font_color=font_color
+        )
+
+        edge_labels = {
+            (u, v): d['weight']
+            for u, v, d in self.graph.edges(data=True)
+        }
+
+        nx.draw_networkx_edge_labels(
+            self.graph,
+            self.pos,
+            ax=ax,
+            edge_labels=edge_labels
+        )
+        
+        norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
+        sm = cm.ScalarMappable(norm=norm, cmap=cmap)
+        sm.set_array([])  # обязательно, иначе будет warning
+        plt.colorbar(sm, ax=ax)
+        plt.show()
+        
 
     def plot_od_matrix(self, cmap=plt.cm.viridis, figsize=(8, 8)):  # type: ignore
         plt.figure(figsize=figsize)

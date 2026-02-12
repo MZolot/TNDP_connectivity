@@ -187,6 +187,18 @@ class TNDP:
 
         return total_cost
 
+    def get_connectivity_for_node(self, multimodal_graph, node_id):
+        number_of_nodes = len(self.graph.nodes)
+        total_connectivity = 0
+        for j in range(1, number_of_nodes + 1):
+            if j == node_id: 
+                continue
+            base_time = self._shortest_path_times[node_id, j]
+            network_time = self.get_shortest_path_time_in_multimodal(multimodal_graph, node_id, j)
+            total_connectivity += network_time / base_time
+        return total_connectivity / (number_of_nodes - 1)
+        
+
     def evaluate_connectivity(self, network: TndpNetwork):
         if 'connectivity' in network.objective_fitnesses:
             return network.objective_fitnesses['connectivity']
