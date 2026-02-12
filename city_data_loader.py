@@ -1,6 +1,13 @@
+import pandas as pd
 import geopandas as gpd
+import osmnx as ox
 
 from iduedu import get_4326_boundary, get_intermodal_graph, get_drive_graph, get_walk_graph
+
+
+IS_LIVING_TAGS = ['residential', 'house', 'apartments',
+                  'detached', 'terrace', 'dormitory', 
+                  'semidetached_house']
 
 
 def get_bounary_from_file(filename, crs=4326):
@@ -35,3 +42,19 @@ def get_streets_graph(
                                      clip_by_territory=clip_by_territory)
 
     return graph
+
+
+def get_buildings(boundary_polygon):
+    buildings = ox.features_from_polygon(boundary_polygon, tags={'building': True})
+    buildings = buildings.reset_index(drop=True).to_crs(4326)
+    
+    buildings['is_living'] = buildings['building'].apply(
+        lambda b: b in IS_LIVING_TAGS)
+    buildings['number_of_floors'] = pd.to_numeric(
+        buildings['building:levels'], errors='coerce')
+    
+    buildings = buildings[buildings.geom_type.isin(
+        ['Polygon', 'MultiPolygon'])]
+    buildings = buildings.to_crs(4326)
+    
+    return buildings
