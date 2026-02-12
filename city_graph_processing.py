@@ -4,6 +4,8 @@ import neatnet
 
 from shapely.geometry import LineString, Point
 
+CRS = 4326
+
 
 def filter_graph_elements(elements, to_keep: dict, to_loose: dict):
     filtered = elements
@@ -45,7 +47,7 @@ def _prepare_gdf_for_neatify(graph):
 
     gdf = edges.copy()
     gdf = gdf.set_geometry("geometry")
-    gdf = gdf.to_crs(epsg=4326)
+    gdf = gdf.to_crs(epsg=CRS)
     gdf_utm = gdf.to_crs(gdf.estimate_utm_crs())
 
     gdf_for_neat = _explode_multilines(gdf_utm)
@@ -91,7 +93,7 @@ def _make_graph_from_edges(edges):
 def simplify_graph(graph):
     simplified_graph = ox.simplify_graph(graph)
     gdf_for_neat = _prepare_gdf_for_neatify(simplified_graph)
-    neat_edges = neatnet.neatify(gdf_for_neat)
+    neat_edges = neatnet.neatify(gdf_for_neat).to_crs(CRS)
     neatified_graph = _make_graph_from_edges(neat_edges)
     from_str = f'({len(graph.edges)} egdes, {len(graph.nodes)} nodes)'
     to_str = f'({len(neatified_graph.edges)} egdes, {len(neatified_graph.nodes)} nodes)'
