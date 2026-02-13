@@ -60,12 +60,13 @@ class GeneticAlgorithm:
         return p1, p2
 
     def _crossover(self, parent1: TndpNetwork, parent2: TndpNetwork) -> TndpNetwork:
-        cut1 = random.randint(0, len(parent1.routes) - 1)
-        cut2 = random.randint(0, len(parent2.routes) - 1)
+        k1 = random.randint(0, len(parent1.routes))
+        k2 = random.randint(0, len(parent2.routes))
+        
+        parent1_routes = random.sample(parent1.routes, k1)
+        parent2_routes = random.sample(parent2.routes, k2)
 
-        # print(f'from parent 1: {cut1}, from parent 2: {cut2}')
-
-        child_routes = parent1.routes[:cut1] + parent2.routes[cut2:]
+        child_routes = parent1_routes + parent2_routes
         child_routes = self._remove_duplicate_routes(child_routes)[
             :self.tndp.max_network_size]
         return TndpNetwork(child_routes)
