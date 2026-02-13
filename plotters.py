@@ -90,7 +90,7 @@ class MandlPlotter():
                          node_color="lightgray",
                          base_edge_color="lightgray",
                          base_edge_width=0.5,
-                         cmap=plt.cm.viridis,  # type: ignore
+                         cmap=plt.get_cmap("viridis"),
                          symmetric=True
                          ):
 
@@ -175,7 +175,7 @@ class MandlPlotter():
         ax.add_collection(lc)
 
         # colorbar
-        sm = plt.cm.ScalarMappable(
+        sm = cm.ScalarMappable(
             cmap=cmap,
             norm=plt.Normalize(vmin=d_min, vmax=d_max)  # type: ignore
         )
@@ -192,7 +192,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
     def __init__(self) -> None:
         super().__init__()
 
-    def plot_network(self, network_routes, title=None, figsize=(10, 8)):
+    def plot_network(self, network_routes, title=None, figsize=(10, 8), with_node_labels=False, cmap = plt.get_cmap("Set3")):
         plt.figure(figsize=figsize)
 
         # базовый граф
@@ -201,10 +201,10 @@ class NetworkOnMandlPlotter(MandlPlotter):
             node_size=200,
             node_color="lightgray",
             edge_color="lightgray",
-            with_labels=True
+            with_labels=with_node_labels
         )
 
-        colors = plt.cm.Set3.colors  # type: ignore
+        colors = [cmap(i) for i in range(len(network_routes))]
 
         # считаем, сколько раз каждое ребро используется
         edge_usage = defaultdict(list)
@@ -254,12 +254,11 @@ class NetworkOnMandlPlotter(MandlPlotter):
         plt.axis("off")
         plt.show()
 
-    def plot_routes(self, routes, route_width=3, cell_size=5):
+    def plot_routes(self, routes, route_width=3, cell_size=5, with_node_labels=False, cmap = plt.get_cmap("tab20")):
         n = len(routes)
 
         if n == 1:
-            self.plot_network(routes, figsize=(cell_size, cell_size * 0.8))
-            return
+            print(1)
 
         # размеры сетки
         cols = math.ceil(math.sqrt(n))
@@ -269,7 +268,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
             cell_size * cols, cell_size * rows))
         axes = axes.flatten()
 
-        colors = plt.cm.tab20.colors  # type: ignore
+        colors = [cmap(i) for i in range(len(routes))]
 
         for i, route in enumerate(routes):
             ax = axes[i]
@@ -285,7 +284,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
                 node_size=30,
                 node_color="lightgray",
                 edge_color="lightgray",
-                with_labels=False
+                with_labels=with_node_labels
             )
 
             # 2. рёбра маршрута
@@ -323,7 +322,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
                         routes,
                         min_width=1,
                         max_width=6,
-                        cmap=plt.cm.viridis,  # type: ignore
+                        cmap=plt.get_cmap("viridis"), 
                         base_edge_color="lightgray",
                         base_edge_width=0.5):
 
@@ -373,7 +372,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
         colors = [edge_usage[e] for e in used_edges]
 
         # 5. отрисовка используемых рёбер поверх
-        edges_drawn = nx.draw_networkx_edges(  # type: ignore[arg-type]
+        edges_drawn = nx.draw_networkx_edges(  
             self.graph, self.pos,
             edgelist=used_edges,
             width=widths,
