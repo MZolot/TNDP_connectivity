@@ -5,8 +5,10 @@ import geopandas as gpd
 from blocksnet.preprocessing.imputing import impute_buildings
 from blocksnet.preprocessing.imputing import impute_population
 
+from services_config import SERVICE_CAPACITY_RANGE
 
-def assign_services_capacity(services_gdf, capacity_range_dict):
+
+def assign_services_capacity(services_gdf, capacity_range_dict=SERVICE_CAPACITY_RANGE):
     """
     Добавляет столбец 'capacity' к GeoDataFrame сервисов.
     Можно делать разные диапазоны для разных типов сервисов.
@@ -17,7 +19,7 @@ def assign_services_capacity(services_gdf, capacity_range_dict):
             cap = np.random.randint(
                 capacity_range_dict[stype][0], capacity_range_dict[stype][1])
         else:
-            cap = np.random.randint(5, 100)  
+            cap = np.random.randint(5, 100)
         capacities.append(cap)
 
     services_gdf['capacity'] = capacities
@@ -143,9 +145,15 @@ def generate_od_matrix(blocks_gdf, services_gdf):
 
     T = np.zeros((n, n))
     for i in range(n):
-        denom = np.sum(A * decay[i, :])
-        if denom > 0:
-            T[i, :] = P[i] * (A * decay[i, :] / denom)
+        for j in range(n):
+            pop_avg = (P[i] + P[j]) / 2
+            attr_avg = (A[i] + A[j]) / 2
+            T[i, j] = pop_avg * attr_avg * decay[i, j]
+
+    for i in range(n):
+        row_sum = T[i, :].sum()
+        if row_sum > 0:
+            T[i, :] = T[i, :] * P[i] / row_sum
 
     od_matrix = pd.DataFrame(
         T,
@@ -153,4 +161,10 @@ def generate_od_matrix(blocks_gdf, services_gdf):
         columns=blocks_gdf['block_id']
     )
 
+    od_matrix = (od_matrix + od_matrix.T) / 2
+
+    od_matrix = od_matrix.loc[~(od_matrix == 0).all(axis=1), :]
+    od_matrix = od_matrix.loc[:, ~(od_matrix == 0).all(axis=0)]
+
+    od_matrix = od_matrix * 100
     return od_matrix
