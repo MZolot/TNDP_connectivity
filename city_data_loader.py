@@ -4,10 +4,12 @@ import osmnx as ox
 
 from iduedu import get_4326_boundary, get_intermodal_graph, get_drive_graph, get_walk_graph
 
+from services_config import SERVICE_OSM_TAGS
+
 CRS = 4326
 
 IS_LIVING_TAGS = ['residential', 'house', 'apartments',
-                  'detached', 'terrace', 'dormitory', 
+                  'detached', 'terrace', 'dormitory',
                   'semidetached_house']
 
 
@@ -46,29 +48,29 @@ def get_streets_graph(
 
 
 def get_buildings(boundary_polygon):
-    buildings = ox.features_from_polygon(boundary_polygon, tags={'building': True})
+    buildings = ox.features_from_polygon(
+        boundary_polygon, tags={'building': True})
     buildings = buildings.reset_index(drop=True).to_crs(CRS)
-    
+
     buildings['is_living'] = buildings['building'].apply(
         lambda b: b in IS_LIVING_TAGS)
     buildings['number_of_floors'] = pd.to_numeric(
         buildings['building:levels'], errors='coerce')
-    
+
     buildings = buildings[buildings.geom_type.isin(
         ['Polygon', 'MultiPolygon'])]
     buildings = buildings.to_crs(CRS)
-    
-    return 
 
-def get_services(boundary_polygon, tags_dict):
+    return
+
+
+def get_services(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
     all_services = []
 
     for service_name, tags_list in tags_dict.items():
-        # формируем словарь тегов для osmnx
         tags = {}
         for key, value in tags_list:
             if key in tags:
-                # если ключ уже есть, добавляем значение в список
                 if isinstance(tags[key], list):
                     tags[key].append(value)
                 else:
@@ -88,8 +90,10 @@ def get_services(boundary_polygon, tags_dict):
             all_services.append(gdf)
 
     if all_services:
-        services_gdf = gpd.GeoDataFrame(pd.concat(all_services, ignore_index=True), crs="EPSG:4326")
+        services_gdf = gpd.GeoDataFrame(
+            pd.concat(all_services, ignore_index=True), crs="EPSG:4326")
     else:
-        services_gdf = gpd.GeoDataFrame(columns=['geometry', 'service_type'], crs="EPSG:4326")
+        services_gdf = gpd.GeoDataFrame(
+            columns=['geometry', 'service_type'], crs="EPSG:4326")
 
     return services_gdf

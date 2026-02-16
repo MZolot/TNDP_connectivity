@@ -196,8 +196,6 @@ def mean_graph_distance_to_connector_optimized(
         Y=connector_point.y
     ))
     
-    print(f' connector_node: {connector_node}, type: {type(connector_node)}')
-
     lengths = nx.single_source_dijkstra_path_length(
         G,
         connector_node,
