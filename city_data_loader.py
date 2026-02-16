@@ -61,7 +61,7 @@ def get_buildings(boundary_polygon):
         ['Polygon', 'MultiPolygon'])]
     buildings = buildings.to_crs(CRS)
 
-    return
+    return buildings
 
 
 def get_services(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
