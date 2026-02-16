@@ -58,4 +58,38 @@ def get_buildings(boundary_polygon):
         ['Polygon', 'MultiPolygon'])]
     buildings = buildings.to_crs(CRS)
     
-    return buildings
+    return 
+
+def get_services(boundary_polygon, tags_dict):
+    all_services = []
+
+    for service_name, tags_list in tags_dict.items():
+        # формируем словарь тегов для osmnx
+        tags = {}
+        for key, value in tags_list:
+            if key in tags:
+                # если ключ уже есть, добавляем значение в список
+                if isinstance(tags[key], list):
+                    tags[key].append(value)
+                else:
+                    tags[key] = [tags[key], value]
+            else:
+                tags[key] = value
+        try:
+            print(f"Загрузка: {service_name}")
+            gdf = ox.features_from_polygon(boundary_polygon, tags)
+        except Exception as e:
+            print(f"Ошибка при загрузке {service_name}: {e}")
+            continue
+
+        if not gdf.empty:
+            gdf = gdf[['geometry']].copy()
+            gdf['service_type'] = service_name
+            all_services.append(gdf)
+
+    if all_services:
+        services_gdf = gpd.GeoDataFrame(pd.concat(all_services, ignore_index=True), crs="EPSG:4326")
+    else:
+        services_gdf = gpd.GeoDataFrame(columns=['geometry', 'service_type'], crs="EPSG:4326")
+
+    return services_gdf
