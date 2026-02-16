@@ -195,6 +195,8 @@ def mean_graph_distance_to_connector_optimized(
         X=connector_point.x,
         Y=connector_point.y
     ))
+    
+    print(f' connector_node: {connector_node}, type: {type(connector_node)}')
 
     lengths = nx.single_source_dijkstra_path_length(
         G,
@@ -222,7 +224,7 @@ def mean_graph_distance_to_connector_optimized(
     return float(np.mean(distances))
 
 
-def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, weight="length"):
+def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, weight="length_meter"):
     blocks = blocks_gdf.to_crs(CRS)
     buildings = buildings_gdf.to_crs(CRS)
 
@@ -235,7 +237,7 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
         centroid = row['centroid_node']
         x = centroid.x
         y = centroid.y
-        G_quarters.add_node(block_id, geometry=centroid, x=x, y=y)
+        G_quarters.add_node(f'{block_id}_block', geometry=centroid, x=x, y=y, type='centroid')
         
         buildings_in_block = buildings_with_blocks[buildings_with_blocks["block_id"] == block_id]
         buildings_in_blocks[block_id] =  buildings_in_block
@@ -260,21 +262,21 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
                 block=row,
                 weight=weight
             )
-            connector_id = f"{connector.name}_c"
+            connector_id = f"{connector.name}_connect"
             x = connector_geom.x
             y = connector_geom.y
             line = LineString([centroid, connector_geom])
             
             if connector_id not in G_quarters:
-                G_quarters.add_node(connector_id, geometry=connector_geom, x=x, y=y)
-            G_quarters.add_edge(block_id, connector_id, weight=mean_dist, geometry=line)
+                G_quarters.add_node(connector_id, geometry=connector_geom, x=x, y=y, type='connector')
+            G_quarters.add_edge(f'{block_id}_block', connector_id, weight=mean_dist, geometry=line)
             
     G_quarters.graph['crs'] = 'EPSG:3857'
 
     return G_quarters
 
 
-def get_blocks_graph(graph, blocks, buildings, node_merge_dist=70, connectors_count=5):
+def get_blocks_graph(graph: nx.MultiDiGraph, blocks, buildings, node_merge_dist=70, connectors_count=5):
     ped_nodes, ped_edges = ox.graph_to_gdfs(graph)
     ped_nodes = ped_nodes.reset_index(drop=True)
 

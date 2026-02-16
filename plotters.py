@@ -34,17 +34,17 @@ class MandlPlotter():
                                      self.pos,
                                      edge_labels=edge_labels)
         plt.show()
-        
-    def plot_colored_mandl(self, values, cmap='viridis', font_color='white', vmin = 1.0, vmax = 2.0):        
-        _, ax = plt.subplots()
-        
+
+    def plot_colored_mandl(self, values, cmap='viridis', font_color='white', vmin=1.0, vmax=2.0, figsize=(8, 8)):
+        _, ax = plt.subplots(figsize=figsize)
+
         nx.draw(
             self.graph,
             self.pos,
             ax=ax,
             with_labels=True,
             node_color=values,
-            cmap=cmap, 
+            cmap=cmap,
             vmin=vmin,
             vmax=vmax,
             font_color=font_color
@@ -61,13 +61,12 @@ class MandlPlotter():
             ax=ax,
             edge_labels=edge_labels
         )
-        
+
         norm = mcolors.Normalize(vmin=vmin, vmax=vmax)
         sm = cm.ScalarMappable(norm=norm, cmap=cmap)
         sm.set_array([])  # обязательно, иначе будет warning
         plt.colorbar(sm, ax=ax)
         plt.show()
-        
 
     def plot_od_matrix(self, cmap=plt.cm.viridis, figsize=(8, 8)):  # type: ignore
         plt.figure(figsize=figsize)
@@ -192,7 +191,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
     def __init__(self) -> None:
         super().__init__()
 
-    def plot_network(self, network_routes, title=None, figsize=(10, 8), with_node_labels=False, cmap = plt.get_cmap("Set3")):
+    def plot_network(self, network_routes, title=None, figsize=(10, 8), with_node_labels=False, cmap=plt.get_cmap("Set3")):
         plt.figure(figsize=figsize)
 
         # базовый граф
@@ -254,7 +253,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
         plt.axis("off")
         plt.show()
 
-    def plot_routes(self, routes, route_width=3, cell_size=5, with_node_labels=False, cmap = plt.get_cmap("tab20")):
+    def plot_routes(self, routes, route_width=3, cell_size=5, with_node_labels=False, cmap=plt.get_cmap("tab20")):
         n = len(routes)
 
         if n == 1:
@@ -322,7 +321,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
                         routes,
                         min_width=1,
                         max_width=6,
-                        cmap=plt.get_cmap("viridis"), 
+                        cmap=plt.get_cmap("viridis"),
                         base_edge_color="lightgray",
                         base_edge_width=0.5):
 
@@ -372,7 +371,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
         colors = [edge_usage[e] for e in used_edges]
 
         # 5. отрисовка используемых рёбер поверх
-        edges_drawn = nx.draw_networkx_edges(  
+        edges_drawn = nx.draw_networkx_edges(
             self.graph, self.pos,
             edgelist=used_edges,
             width=widths,
@@ -398,26 +397,29 @@ class NetworkOnMandlPlotter(MandlPlotter):
 class CityPlotter():
     def plot_boundary(self, gdf):
         gdf.to_crs(epsg=3857).plot(figsize=(8, 8),
-                                   #    edgecolor='red',
-                                   #    color='none',
                                    linewidth=3)
 
-    def plot_boundary_on_map(self, gdf):
+    def plot_boundary_on_map(self, gdf, figsize=(8, 8), axis=False):
         ax = (gdf.to_crs(epsg=3857)
-              .plot(figsize=(8, 8),
+              .plot(figsize=figsize,
                     edgecolor='red',
                     color='none',
                     linewidth=3))
+        if not axis:
+            ax.set_axis_off()
         ctx.add_basemap(ax)
+        return ax
 
-    def plot_streets_graph(self, graph, ax=None, figsize=(8,8)):
+    def plot_streets_graph(self, graph, ax=None, figsize=(8, 8), axis=False):
         nodes, edges = ox.graph_to_gdfs(graph)
         if ax is None:
             _, ax = plt.subplots(figsize=figsize)
         edges.plot(ax=ax, linewidth=0.5, color="gray")
         nodes.plot(ax=ax, color="blue", markersize=2)
+        if not axis:
+            ax.set_axis_off()
 
-    def plot_streets_graph_on_map(self, graph, boundary_gdf=None, ax=None, figsize=(8,8)):
+    def plot_streets_graph_on_map(self, graph, boundary_gdf=None, ax=None, figsize=(8, 8)):
         nodes, edges = ox.graph_to_gdfs(graph)
         nodes = nodes.to_crs(epsg=3857)
         edges = edges.to_crs(epsg=3857)

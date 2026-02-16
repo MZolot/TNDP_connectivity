@@ -93,7 +93,7 @@ def _make_graph_from_edges(edges):
 def simplify_graph(graph):
     simplified_graph = ox.simplify_graph(graph)
     gdf_for_neat = _prepare_gdf_for_neatify(simplified_graph)
-    neat_edges = neatnet.neatify(gdf_for_neat).to_crs(CRS)
+    neat_edges = neatnet.neatify(gdf_for_neat).to_crs(3857)
     neatified_graph = _make_graph_from_edges(neat_edges)
     from_str = f'({len(graph.edges)} egdes, {len(graph.nodes)} nodes)'
     to_str = f'({len(neatified_graph.edges)} egdes, {len(neatified_graph.nodes)} nodes)'
