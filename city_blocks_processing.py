@@ -196,10 +196,22 @@ def mean_graph_distance_to_connector_optimized(
         Y=connector_point.y
     ))
     
-    lengths = nx.single_source_dijkstra_path_length(
+    try:
+        lengths = nx.single_source_dijkstra_path_length(
+            G,
+            connector_node,
+            weight=weight
+        )
+    except TypeError:
+        # print(f'Incorrect corrector node or smth: {connector_node}')
+        return block['centroid_node'].distance(connector_point)
+
+    building_points = buildings.geometry.centroid
+
+    building_nodes = ox.distance.nearest_nodes(
         G,
-        connector_node,
-        weight=weight
+        X=building_points.x.values,
+        Y=building_points.y.values
     )
 
     building_points = buildings.geometry.centroid
@@ -248,9 +260,11 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
         buildings = buildings_in_blocks.get(block_id)
 
         connectors = connectors_gdf[connectors_gdf['block_ids'].apply(lambda x: block_id in x)]
+        
         if connectors.empty:
+            G_quarters.remove_node(f'{block_id}_block')
             continue
-
+        
         for i, connector in connectors.iterrows():
             connector_geom = connector.geometry
             mean_dist = mean_graph_distance_to_connector_optimized(
@@ -260,14 +274,17 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
                 block=row,
                 weight=weight
             )
+            block_node_name = f'{block_id}_block'
             connector_id = f"{connector.name}_connect"
             x = connector_geom.x
             y = connector_geom.y
             line = LineString([centroid, connector_geom])
             
             if connector_id not in G_quarters:
-                G_quarters.add_node(connector_id, geometry=connector_geom, x=x, y=y, type='connector')
-            G_quarters.add_edge(f'{block_id}_block', connector_id, weight=mean_dist, geometry=line)
+                G_quarters.add_node(connector_id, geometry=connector_geom, x=x, y=y, type='connector', blocks=[block_node_name])
+            else:
+                G_quarters.nodes[connector_id]['blocks'].append(block_node_name)
+            G_quarters.add_edge(block_node_name, connector_id, length_meter=mean_dist, geometry=line)
             
     G_quarters.graph['crs'] = 'EPSG:3857'
 
