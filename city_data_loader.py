@@ -64,7 +64,7 @@ def get_buildings(boundary_polygon):
     return buildings
 
 
-def get_services(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
+def get_services_from_osm(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
     all_services = []
 
     for service_name, tags_list in tags_dict.items():
@@ -97,3 +97,8 @@ def get_services(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
             columns=['geometry', 'service_type'], crs="EPSG:4326")
 
     return services_gdf
+
+
+def get_services_from_file(filename, crs=CRS):
+    data = gpd.read_file(filename)
+    return data

@@ -238,7 +238,7 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
     blocks = blocks_gdf.to_crs(CRS)
     buildings = buildings_gdf.to_crs(CRS)
 
-    G_quarters = nx.MultiGraph()
+    G_quarters = nx.Graph()
     buildings_with_blocks = assign_buildings_to_blocks(buildings, blocks)
     buildings_in_blocks = {}
 
