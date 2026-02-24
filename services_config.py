@@ -47,10 +47,10 @@ SERVICE_OSM_TAGS = {
     # "machine_building_plant":   [("product", "machinery")],
     "brewery":                  [("craft", "brewery")],
     # "oil_refinery":             [("industrial", "refinery")],
-    "plant_of_building_materials":[("building", "industrial")],
+    "plant_of_building_materials": [("building", "industrial")],
     # "wastewater_plant":         [("man_made", "wastewater_plant")],
     # "water_works":              [("man_made", "water_works")],
-    "substation":               [("power", "substation")],
+    # "substation":               [("power", "substation")],
     "train_station":            [("railway", "station")],
     # "bus_station":              [("amenity", "bus_station")],
     # "bus_stop":                 [("highway", "bus_stop"), ("railway", "tram_stop")],
@@ -78,6 +78,8 @@ SERVICE_OSM_TAGS = {
     # "railway_roundhouse":       [("railway", "roundhouse")],
     # "aeroway_terminal":         [("aeroway", "terminal")],
     # "crematorium":              [("amenity", "crematorium")],
+
+    "research":                 [("office", "research")]
 }
 
 
@@ -118,5 +120,6 @@ SERVICE_CAPACITY_RANGE = {
     "hostel":                   (10, 100),
     "bakery":                   (10, 100),
     "parking":                  (10, 100),
-    "library":                  (50, 500)
+    "library":                  (50, 500),
+    "research":                 (100, 1000)
 }
