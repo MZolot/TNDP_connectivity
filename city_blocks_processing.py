@@ -5,6 +5,7 @@ import osmnx as ox
 import networkx as nx
 from sklearn.cluster import DBSCAN
 from shapely.geometry import Point, LineString
+from tqdm.auto import tqdm
 
 CRS = 3857
 
@@ -21,7 +22,7 @@ def get_edge_intersection_points(blocks, pedestrian_edges):
 
     connector_points = []
 
-    for idx, block in blocks_3857.iterrows():
+    for idx, block in tqdm(blocks_3857.iterrows(), total=len(blocks_3857), desc="   Getting intersections for blocks", leave=False):
         boundary = block.geometry.boundary
 
         for jdx, edge in ped_edges_3857.iterrows():
@@ -252,8 +253,7 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
         buildings_in_block = buildings_with_blocks[buildings_with_blocks["block_id"] == block_id]
         buildings_in_blocks[block_id] =  buildings_in_block
 
-    for idx, row in blocks.iterrows():
-        print(idx, end=' ')
+    for idx, row in tqdm(blocks.iterrows(), total=len(blocks), desc="   Building graph for blocks", leave=False):
         block_id = row['block_id']
         centroid = row['centroid_node']
         
@@ -295,28 +295,59 @@ def get_blocks_graph(graph: nx.MultiDiGraph, blocks, buildings, node_merge_dist=
     ped_nodes, ped_edges = ox.graph_to_gdfs(graph)
     ped_nodes = ped_nodes.reset_index(drop=True)
 
-    nodes_in_buffer = get_connector_points(blocks, ped_nodes)
-    intersection_nodes = get_edge_intersection_points(blocks, ped_edges)
+    steps = [
+        ("Getting existing connectors", lambda: get_connector_points(blocks, ped_nodes)),
+        ("Getting edge intersections", lambda: get_edge_intersection_points(blocks, ped_edges)),
+        ("Filtering nodes", None),  # placeholder
+        ("Merging nodes", None),
+        ("Filtering connectors", None),
+        ("Building graph", None),
+    ]
 
-    buffer_nodes = nodes_in_buffer.rename(columns={'index_right': 'block_id'})
-    intersection_nodes = intersection_nodes.rename(
-        columns={'block_idx': 'block_id'})
-    buffer_nodes = buffer_nodes.loc[:, ~buffer_nodes.columns.duplicated()]
-    intersection_nodes = intersection_nodes.loc[:, ~intersection_nodes.columns.duplicated()]
-    all_nodes = gpd.GeoDataFrame(
-        pd.concat([buffer_nodes, intersection_nodes]),
-        crs=buffer_nodes.crs
-    )
-    
-    filtered_nodes = filter_close_nodes(all_nodes)
-    merged_nodes = merge_close_nodes(
-        filtered_nodes, blocks, node_merge_dist=node_merge_dist)
-    final_connectors = limit_connectors_segmented(
-        merged_nodes, blocks, max_k=connectors_count)
-    
-    blocks = blocks.to_crs(CRS)
-    blocks["block_id"] = blocks.index
-    blocks["centroid_node"] = blocks.geometry.representative_point()
-    G_blocks = build_block_graph(blocks, buildings, graph, final_connectors, weight='length_meter')
+    with tqdm(total=len(steps), desc="Building blocks graph") as pbar:
 
+        pbar.set_description("Getting existing connectors")
+        nodes_in_buffer = get_connector_points(blocks, ped_nodes)
+        pbar.update(1)
+
+        pbar.set_description("Getting edge intersections")
+        intersection_nodes = get_edge_intersection_points(blocks, ped_edges)
+        pbar.update(1)
+
+        buffer_nodes = nodes_in_buffer.rename(columns={'index_right': 'block_id'})
+        intersection_nodes = intersection_nodes.rename(columns={'block_idx': 'block_id'})
+        buffer_nodes = buffer_nodes.loc[:, ~buffer_nodes.columns.duplicated()]
+        intersection_nodes = intersection_nodes.loc[:, ~intersection_nodes.columns.duplicated()]
+
+        all_nodes = gpd.GeoDataFrame(
+            pd.concat([buffer_nodes, intersection_nodes]),
+            crs=buffer_nodes.crs
+        )
+
+        pbar.set_description("Filtering nodes")
+        filtered_nodes = filter_close_nodes(all_nodes)
+        pbar.update(1)
+
+        pbar.set_description("Merging nodes")
+        merged_nodes = merge_close_nodes(
+            filtered_nodes, blocks, node_merge_dist=node_merge_dist
+        )
+        pbar.update(1)
+
+        pbar.set_description("Filtering connectors")
+        final_connectors = limit_connectors_segmented(
+            merged_nodes, blocks, max_k=connectors_count
+        )
+        pbar.update(1)
+
+        pbar.set_description("Building graph")
+        blocks = blocks.to_crs(CRS)
+        blocks["block_id"] = blocks.index
+        blocks["centroid_node"] = blocks.geometry.representative_point()
+
+        G_blocks = build_block_graph(
+            blocks, buildings, graph, final_connectors, weight='length_meter'
+        )
+        pbar.update(1)
+        
     return G_blocks
