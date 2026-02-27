@@ -317,7 +317,8 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
 
     # копируем узлы улиц
     for node_id, data in nodes_gdf_3857.iterrows():
-        attrs = {str(k): v for k, v in data.drop(['x', 'y']).to_dict().items()}
+        attrs = {str(k): v for k, v in data.drop(['x', 'y', 'osmid']).to_dict().items()}
+        attrs["on_street"] = True
         G_new.add_node(node_id, x=data['x'], y=data['y'], **attrs)
 
     # копируем рёбра улиц
@@ -355,7 +356,8 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
                 node_id,
                 x=data["x"],
                 y=data["y"],
-                blocks=data.get("blocks", [])
+                blocks=data.get("blocks", []),
+                on_street=False
             )
 
     # --- 4. Вставляем коннекторы на ребра ---
@@ -365,35 +367,36 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
         ].iloc[0]
         geom = cast(BaseGeometry, street_edge.geometry)
 
-        # сортируем коннекторы по проекции на линию
-        conns_sorted = sorted(conns, key=lambda nid: geom.project(
-            Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"])))
+        conns_sorted = sorted(
+            conns,
+            key=lambda nid: geom.project(
+                Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"])
+            )
+        )
 
-        # строим цепочку узлов: u → c1 → c2 → ... → v
         nodes_chain = [u] + conns_sorted + [v]
-        points_chain = [Point(geom.coords[0])] + \
-                       [Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"]) for nid in conns_sorted] + \
-                       [Point(geom.coords[-1])]
+        points_chain = (
+            [Point(geom.coords[0])] +
+            [Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"]) for nid in conns_sorted] +
+            [Point(geom.coords[-1])]
+        )
 
         # удаляем старое ребро
         keys_to_remove = list(G_new[u][v].keys())
         for k in keys_to_remove:
             G_new.remove_edge(u, v, k)
 
-        # добавляем новые ребра между цепочкой узлов
         for i in range(len(nodes_chain)-1):
             n1, n2 = nodes_chain[i], nodes_chain[i+1]
             p1, p2 = points_chain[i], points_chain[i+1]
 
-            # добавляем узлы, если ещё нет, и для коннекторов сохраняем blocks
             for n, p in [(n1, p1), (n2, p2)]:
                 if n not in G_new:
-                    attrs = {}
+                    attrs = {"on_street": True}
                     if str(n).endswith("_connect"):
                         attrs["blocks"] = G_blocks.nodes[n].get("blocks", [])
                     G_new.add_node(n, x=p.x, y=p.y, **attrs)
 
-            # добавляем ребро
             line_seg = LineString([p1, p2])
             G_new.add_edge(n1, n2, geometry=line_seg, length=line_seg.length)
 
@@ -402,19 +405,31 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
         if not str(node_id).endswith("_connect"):
             continue
 
-        neighbors = [n for n in G_blocks.predecessors(
-            node_id) if str(n).endswith("_block")]
-        for block_node in neighbors:
-            x_block, y_block = G_blocks.nodes[block_node]["x"], G_blocks.nodes[block_node]["y"]
-            if block_node not in G_new:
-                G_new.add_node(block_node, x=x_block, y=y_block)
+        neighbors = [
+            n for n in G_blocks.predecessors(node_id)
+            if str(n).endswith("_block")
+        ]
 
-            # добавляем ребра block → connect
+        for block_node in neighbors:
+            x_block = G_blocks.nodes[block_node]["x"]
+            y_block = G_blocks.nodes[block_node]["y"]
+
+            if block_node not in G_new:
+                G_new.add_node(
+                    block_node,
+                    x=x_block,
+                    y=y_block,
+                    on_street=False  # NEW
+                )
+
             edge_data_dict = G_blocks.get_edge_data(block_node, node_id)
-            if isinstance(edge_data_dict, dict) and any(isinstance(v, dict) for v in edge_data_dict.values()):
-                edge_items = edge_data_dict.items()  # MultiDiGraph
+
+            if isinstance(edge_data_dict, dict) and any(
+                isinstance(v, dict) for v in edge_data_dict.values()
+            ):
+                edge_items = edge_data_dict.items()
             else:
-                edge_items = [(None, edge_data_dict)]  # обычный граф
+                edge_items = [(None, edge_data_dict)]
 
             for edge_key, edge_data in edge_items:
                 connector_geom = edge_data["geometry"]
