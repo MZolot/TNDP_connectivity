@@ -1,5 +1,6 @@
 import geopandas as gpd
 import osmnx as ox
+import networkx as nx
 import neatnet
 
 from shapely.geometry import LineString, Point
@@ -15,6 +16,31 @@ def filter_graph_elements(elements, to_keep: dict, to_loose: dict):
         filtered = filtered[filtered[key] != to_loose[key]]
     return
 
+def _filter_short_dead_end_edges(graph, length_threshold = 200):
+    filtered_graph = graph.copy()
+    dead_end_edges = []
+
+    for u, v, key, data in filtered_graph.edges(keys=True, data=True):  # type: ignore
+        geom = data.get("geometry")
+        if geom is None:
+            continue
+        length = geom.length
+
+        deg_u = filtered_graph.in_degree(u) + filtered_graph.out_degree(u)  # type: ignore
+        deg_v = filtered_graph.in_degree(v) + filtered_graph.out_degree(v)  # type: ignore
+
+        if length <= length_threshold and (deg_u == 1 or deg_v == 1):
+            dead_end_edges.append((u, v, key, length))
+
+    for u, v, key, _ in dead_end_edges:
+        if filtered_graph.has_edge(u, v, key):
+            filtered_graph.remove_edge(u, v, key)
+
+    isolated_nodes = list(nx.isolates(filtered_graph))
+
+    filtered_graph.remove_nodes_from(isolated_nodes)
+    
+    return filtered_graph
 
 def _explode_multilines(gdf):
     gdf = gdf.copy()
@@ -90,13 +116,17 @@ def _make_graph_from_edges(edges):
     return G
 
 
-def simplify_graph(graph):
+def simplify_graph(graph, dead_ends_length_threshold):
     simplified_graph = ox.simplify_graph(graph)
     gdf_for_neat = _prepare_gdf_for_neatify(simplified_graph)
     neat_edges = neatnet.neatify(gdf_for_neat).to_crs(3857)
     neatified_graph = _make_graph_from_edges(neat_edges)
+    filtered_graph = _filter_short_dead_end_edges(neatified_graph, dead_ends_length_threshold)
+    
     from_str = f'({len(graph.edges)} egdes, {len(graph.nodes)} nodes)'
-    to_str = f'({len(neatified_graph.edges)} egdes, {len(neatified_graph.nodes)} nodes)'
+    between_str = f'({len(neatified_graph.edges)} egdes, {len(neatified_graph.nodes)} nodes)'    
+    to_str = f'({len(filtered_graph.edges)} egdes, {len(filtered_graph.nodes)} nodes)'
     print(
-        f'Simplified graph: {from_str} --> {to_str}')
-    return neatified_graph
+        f'Simplified graph: {from_str} --> {between_str} --> {to_str}')
+    
+    return filtered_graph
