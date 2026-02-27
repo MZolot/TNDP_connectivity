@@ -304,7 +304,7 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
 
 
 def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
-    # --- 0. Приводим граф улиц к MultiGraph, чтобы работать как с неориентированным ---
+    # --- 0. Приводим граф улиц к MultiGraph (неориентированный) ---
     G_streets_undir = nx.MultiGraph(G_streets)
 
     # --- 1. Преобразуем граф улиц в GeoDataFrame и CRS 3857 ---
@@ -329,13 +329,13 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
 
     # --- 3. Группируем коннекторы по ближайшему ребру ---
     connectors_by_edge = defaultdict(list)
+    outside_connectors = []
 
     for node_id, data in G_blocks.nodes(data=True):
         if not str(node_id).endswith("_connect"):
             continue
 
         point = Point(data["x"], data["y"])
-
         edges_nonnull = edges_gdf_3857[edges_gdf_3857.geometry.notnull()]
         distances = edges_nonnull.distance(point)
         if not distances.empty:
@@ -347,11 +347,16 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
         if min_dist <= epsilon:
             u = edges_nonnull.loc[nearest_edge_idx, "u"]
             v = edges_nonnull.loc[nearest_edge_idx, "v"]
-            connectors_by_edge[(u, v)].append((node_id, point))
+            connectors_by_edge[(u, v)].append(node_id)
         else:
-            # коннектор вне улицы — просто добавляем
-            if node_id not in G_new:
-                G_new.add_node(node_id, x=data["x"], y=data["y"])
+            outside_connectors.append(node_id)
+            # добавляем узел вне улицы
+            G_new.add_node(
+                node_id,
+                x=data["x"],
+                y=data["y"],
+                blocks=data.get("blocks", [])
+            )
 
     # --- 4. Вставляем коннекторы на ребра ---
     for (u, v), conns in connectors_by_edge.items():
@@ -361,14 +366,14 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
         geom = cast(BaseGeometry, street_edge.geometry)
 
         # сортируем коннекторы по проекции на линию
-        conns_sorted = sorted(conns, key=lambda x: geom.project(x[1]))
+        conns_sorted = sorted(conns, key=lambda nid: geom.project(
+            Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"])))
 
-        # цепочка узлов: u → c1 → c2 ... → v
-        nodes_chain = [u] + [nid for nid, _ in conns_sorted] + [v]
-        points_chain = [geom.interpolate(geom.project(p))
-                        for _, p in conns_sorted]
+        # строим цепочку узлов: u → c1 → c2 → ... → v
+        nodes_chain = [u] + conns_sorted + [v]
         points_chain = [Point(geom.coords[0])] + \
-            points_chain + [Point(geom.coords[-1])]
+                       [Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"]) for nid in conns_sorted] + \
+                       [Point(geom.coords[-1])]
 
         # удаляем старое ребро
         keys_to_remove = list(G_new[u][v].keys())
@@ -380,30 +385,25 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
             n1, n2 = nodes_chain[i], nodes_chain[i+1]
             p1, p2 = points_chain[i], points_chain[i+1]
 
-            # добавляем узлы, если ещё нет
-            if n1 not in G_new:
-                G_new.add_node(n1, x=p1.x, y=p1.y)
-            if n2 not in G_new:
-                G_new.add_node(n2, x=p2.x, y=p2.y)
+            # добавляем узлы, если ещё нет, и для коннекторов сохраняем blocks
+            for n, p in [(n1, p1), (n2, p2)]:
+                if n not in G_new:
+                    attrs = {}
+                    if str(n).endswith("_connect"):
+                        attrs["blocks"] = G_blocks.nodes[n].get("blocks", [])
+                    G_new.add_node(n, x=p.x, y=p.y, **attrs)
 
             # добавляем ребро
             line_seg = LineString([p1, p2])
             G_new.add_edge(n1, n2, geometry=line_seg, length=line_seg.length)
-
-            # добавляем узлы-коннекторы, если ещё нет
-            if i > 0 and nodes_chain[i] not in G_new:
-                p = points_chain[i]
-                G_new.add_node(nodes_chain[i], x=p.x, y=p.y)
 
     # --- 5. Добавляем блоки, соединённые с коннекторами ---
     for node_id, data in G_blocks.nodes(data=True):
         if not str(node_id).endswith("_connect"):
             continue
 
-        # находим блоки через predecessors
         neighbors = [n for n in G_blocks.predecessors(
             node_id) if str(n).endswith("_block")]
-
         for block_node in neighbors:
             x_block, y_block = G_blocks.nodes[block_node]["x"], G_blocks.nodes[block_node]["y"]
             if block_node not in G_new:
@@ -411,7 +411,6 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
 
             # добавляем ребра block → connect
             edge_data_dict = G_blocks.get_edge_data(block_node, node_id)
-            # поддержка MultiDiGraph или обычного DiGraph
             if isinstance(edge_data_dict, dict) and any(isinstance(v, dict) for v in edge_data_dict.values()):
                 edge_items = edge_data_dict.items()  # MultiDiGraph
             else:
@@ -423,7 +422,7 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
                     block_node,
                     node_id,
                     geometry=connector_geom,
-                    length=connector_geom.length,
+                    length_meter=connector_geom.length,
                     weight=connector_geom.length,
                     type="connector"
                 )
@@ -496,7 +495,7 @@ def get_blocks_graph(graph: nx.MultiDiGraph, blocks, streets_graph, buildings, n
             blocks, buildings, graph, final_connectors, weight='length_meter'
         )
         pbar.update(1)
-        
+
         G_fin = merge_blocks_into_streets(streets_graph, G_blocks)
         pbar.update(1)
 

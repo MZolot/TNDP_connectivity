@@ -71,6 +71,26 @@ def _get_demand_between_connector_nodes(graph, od_matrix, from_node, to_node):
     return total_demand
 
 
+def _get_edge_length(u, v, graph):
+    edge_data = graph.get_edge_data(u, v)
+    if edge_data is None:
+        return np.inf
+    # edge_data для MultiGraph — словарь с ключами
+    if graph.is_multigraph():
+        lengths = []
+        for key in edge_data:
+            val = edge_data[key].get("length_meter", np.inf)
+            # Если список, берём минимальное
+            if isinstance(val, list):
+                val = min(val)
+            lengths.append(val)
+        return min(lengths)
+    else:
+        val = edge_data.get("length_meter", np.inf)
+        if isinstance(val, list):
+            val = min(val)
+        return val
+
 def get_line_pool_real(graph,
                        od_matrix,
                        k_shortest_paths,
@@ -92,23 +112,25 @@ def get_line_pool_real(graph,
     for origin, destination in tqdm(od_pairs, desc="Generating routes"):
 
         try:
+            # Создаем генератор кратчайших простых путей, используя нашу функцию веса
+            def edge_weight(u, v, data):
+                return _get_edge_length(u, v, graph)
+
             paths_generator = nx.shortest_simple_paths(
-                graph, origin, destination, weight="length_meter"
+                graph, origin, destination, weight=edge_weight
             )
 
-            # Берём только первые k_shortest_paths
             for path in itertools.islice(paths_generator, k_shortest_paths):
 
                 # --- длина маршрута ---
-                length = sum(graph[u][v]["length_meter"]
+                length = sum(_get_edge_length(u, v, graph)
                              for u, v in zip(path[:-1], path[1:]))
 
                 if not (min_path_length <= length <= max_path_length):
                     continue
 
                 # --- считаем спрос только для _connect ---
-                connect_nodes = [n for n in path if str(
-                    n).endswith("_connect")]
+                connect_nodes = [n for n in path if str(n).endswith("_connect")]
 
                 demand_sum = 0
                 for i in range(len(connect_nodes)):
@@ -128,9 +150,7 @@ def get_line_pool_real(graph,
                 for stop in path:
                     lines_per_stop[stop] += 1
 
-        except nx.NetworkXNoPath:
-            continue
-        except nx.NodeNotFound:
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
             continue
 
     # --- определяем порог спроса ---
@@ -141,7 +161,6 @@ def get_line_pool_real(graph,
     final_pool = []
 
     for line in pool:
-
         path = line['path']
         line_demand = line['demand']
 
