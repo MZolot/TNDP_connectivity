@@ -187,9 +187,9 @@ def get_line_pool_connectors_only(
     od_matrix_connectors,
     k_shortest_paths=3,
     min_path_length=500,
-    max_path_length=5000,
+    max_path_length=10000,
     theta=0.5,
-    min_lines_per_stop=1
+    min_lines_per_stop=2
 ):
     # --- 1. Формируем OD-пары коннекторов с ненулевым спросом ---
     od_pairs = (
@@ -200,7 +200,6 @@ def get_line_pool_connectors_only(
     )
     # уникальные пары без дублирования
     od_pairs = [(i, j) for i, j in od_pairs if i < j]
-    print(f'OD pairs: {len(od_pairs)}')
 
     pool = []
     lines_per_stop = {n: 0 for n in G_routing.nodes}
@@ -217,7 +216,6 @@ def get_line_pool_connectors_only(
             paths_generator = nx.shortest_simple_paths(
                 G_routing, origin, destination, weight=edge_weight
             )
-            # print(origin, destination)
 
             for path in itertools.islice(paths_generator, k_shortest_paths):
                 # длина маршрута
@@ -227,22 +225,18 @@ def get_line_pool_connectors_only(
                 )
 
                 if not (min_path_length <= length <= max_path_length):
-                    # print(f'wrong length between {(origin, destination)}: {length}')
                     continue
 
                 # узлы-коннекторы на пути
                 connect_nodes = [n for n in path if str(
                     n).endswith("_connect")]
-                # print(f'nodes {connect_nodes}')
 
                 # суммарный спрос между коннекторами
                 demand_sum = 0
                 for i in range(len(connect_nodes)):
                     for j in range(i + 1, len(connect_nodes)):
-                        # demand_sum += _get_demand_between_connector_nodes(
-                        #     G_routing, od_matrix_connectors, connect_nodes[i], connect_nodes[j]
-                        # )
-                        demand_sum += od_matrix_connectors.loc[connect_nodes[i], connect_nodes[j]]
+                        demand_sum += od_matrix_connectors.loc[connect_nodes[i],
+                                                               connect_nodes[j]]
 
                 pool.append({
                     "path": path,
