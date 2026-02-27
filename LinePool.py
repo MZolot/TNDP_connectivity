@@ -1,8 +1,10 @@
+from tqdm import tqdm
 from tqdm.notebook import tqdm
 import itertools
 
 import networkx as nx
 import numpy as np
+import pandas as pd
 
 
 def get_line_pool_mandl(graph,
@@ -91,6 +93,7 @@ def _get_edge_length(u, v, graph):
             val = min(val)
         return val
 
+
 def get_line_pool_real(graph,
                        od_matrix,
                        k_shortest_paths,
@@ -130,7 +133,8 @@ def get_line_pool_real(graph,
                     continue
 
                 # --- считаем спрос только для _connect ---
-                connect_nodes = [n for n in path if str(n).endswith("_connect")]
+                connect_nodes = [n for n in path if str(
+                    n).endswith("_connect")]
 
                 demand_sum = 0
                 for i in range(len(connect_nodes)):
@@ -160,6 +164,107 @@ def get_line_pool_real(graph,
     # --- финальная фильтрация ---
     final_pool = []
 
+    for line in pool:
+        path = line['path']
+        line_demand = line['demand']
+
+        if line_demand >= demand_threshold:
+            final_pool.append(line)
+            continue
+
+        if any(lines_per_stop[stop] <= min_lines_per_stop for stop in path):
+            final_pool.append(line)
+            continue
+
+        for stop in path:
+            lines_per_stop[stop] -= 1
+
+    return final_pool
+
+
+def get_line_pool_connectors_only(
+    G_routing,
+    od_matrix_connectors,
+    k_shortest_paths=3,
+    min_path_length=500,
+    max_path_length=5000,
+    theta=0.5,
+    min_lines_per_stop=1
+):
+    # --- 1. Формируем OD-пары коннекторов с ненулевым спросом ---
+    od_pairs = (
+        od_matrix_connectors
+        .stack()
+        .loc[lambda x: x > 1]  # только пары с спросом > 1
+        .index
+    )
+    # уникальные пары без дублирования
+    od_pairs = [(i, j) for i, j in od_pairs if i < j]
+    print(f'OD pairs: {len(od_pairs)}')
+
+    pool = []
+    lines_per_stop = {n: 0 for n in G_routing.nodes}
+
+    # --- 2. Генератор кратчайших путей с учётом длины ребра ---
+    def edge_weight(u, v, data):
+        val = data.get("length_meter", np.inf)
+        if isinstance(val, list):
+            val = min(val)
+        return val
+
+    for origin, destination in tqdm(od_pairs, desc="Generating routes"):
+        try:
+            paths_generator = nx.shortest_simple_paths(
+                G_routing, origin, destination, weight=edge_weight
+            )
+            # print(origin, destination)
+
+            for path in itertools.islice(paths_generator, k_shortest_paths):
+                # длина маршрута
+                length = sum(
+                    edge_weight(u, v, G_routing.get_edge_data(u, v, k))
+                    for u, v, k in zip(path[:-1], path[1:], [list(G_routing[u][v].keys())[0] for u, v in zip(path[:-1], path[1:])])
+                )
+
+                if not (min_path_length <= length <= max_path_length):
+                    # print(f'wrong length between {(origin, destination)}: {length}')
+                    continue
+
+                # узлы-коннекторы на пути
+                connect_nodes = [n for n in path if str(
+                    n).endswith("_connect")]
+                # print(f'nodes {connect_nodes}')
+
+                # суммарный спрос между коннекторами
+                demand_sum = 0
+                for i in range(len(connect_nodes)):
+                    for j in range(i + 1, len(connect_nodes)):
+                        # demand_sum += _get_demand_between_connector_nodes(
+                        #     G_routing, od_matrix_connectors, connect_nodes[i], connect_nodes[j]
+                        # )
+                        demand_sum += od_matrix_connectors.loc[connect_nodes[i], connect_nodes[j]]
+
+                pool.append({
+                    "path": path,
+                    "length": length,
+                    "demand": demand_sum
+                })
+
+                for stop in path:
+                    lines_per_stop[stop] += 1
+
+        except (nx.NetworkXNoPath, nx.NodeNotFound):
+            continue
+
+    # --- 3. Пороговое значение спроса ---
+    demands = np.array([l['demand'] for l in pool])
+    if len(demands) > 0:
+        demand_threshold = np.percentile(demands, theta * 100)
+    else:
+        demand_threshold = 0
+
+    # --- 4. Финальная фильтрация ---
+    final_pool = []
     for line in pool:
         path = line['path']
         line_demand = line['demand']
