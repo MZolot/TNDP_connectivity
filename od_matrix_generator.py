@@ -1,3 +1,5 @@
+from tqdm.notebook import tqdm
+
 import numpy as np
 import pandas as pd
 import geopandas as gpd
@@ -110,7 +112,7 @@ def assign_blocks_to_services(services_gdf, blocks_gdf):
         total_area
     )
 
-    print((polygons_split['area'] < 5).sum())
+    # print((polygons_split['area'] < 5).sum())
     polygons_split = polygons_split[
         polygons_split['capacity_part'] >= 5
     ].copy()
@@ -168,3 +170,34 @@ def generate_od_matrix(blocks_gdf, services_gdf):
 
     od_matrix = od_matrix * 100
     return od_matrix
+
+
+def generate_connector_od_matrix(graph, block_od_matrix):
+    # список коннекторов
+    connectors = [n for n, data in graph.nodes(data=True) if str(n).endswith("_connect")]
+    
+    # создаём пустую матрицу
+    connector_od = pd.DataFrame(0, index=connectors, columns=connectors, dtype=float)
+    
+    # проходим по всем парам коннекторов
+    for from_node in tqdm(connectors, desc="Building connector OD matrix"):
+        from_blocks = graph.nodes[from_node].get('blocks', [])
+        for to_node in connectors:
+            to_blocks = graph.nodes[to_node].get('blocks', [])
+            
+            # суммируем спрос между блоками
+            total_demand = sum(
+                block_od_matrix.loc[f_block, t_block]
+                for f_block in from_blocks
+                for t_block in to_blocks
+            )
+            connector_od.loc[from_node, to_node] = total_demand
+    
+    return connector_od
+
+
+def describe(od_matrix):
+    od_matrix_values = od_matrix.values.flatten()
+    od_matrix_series = pd.Series(od_matrix_values)
+
+    return od_matrix_series.describe()
