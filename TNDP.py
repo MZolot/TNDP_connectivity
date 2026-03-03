@@ -1,5 +1,8 @@
+import math
+
 import networkx as nx
 import numpy as np
+import pandas as pd
 
 
 class TndpNetwork:
@@ -44,7 +47,7 @@ class TNDP:
         self.time_weight = time_weight
         self.cost_weight = cost_weight
         self.connectivity_weight = connectivity_weight
-        self._shortest_path_times = self._calculate_shortest_paths_for_graph(self.graph)
+        self._shortest_path_times = self._calculate_shortest_paths_for_matrix(self.pedestrian_graph)
 
     def _calculate_shortest_paths_for_graph(self, graph):
         n = graph.number_of_nodes()
@@ -62,6 +65,28 @@ class TNDP:
             for j, target in enumerate(nodes):
                 if target in lengths:
                     dist_matrix[i + 1, j + 1] = lengths[target]
+
+        return dist_matrix
+    
+    def _calculate_shortest_paths_for_matrix(self, graph):
+        od_nodes = list(self.od_matrix.index) 
+        n = len(od_nodes)
+
+        dist_matrix = pd.DataFrame(
+            np.full((n, n), np.inf),
+            index=od_nodes,
+            columns=od_nodes
+        )
+
+        for source in od_nodes:
+            if source not in graph:
+                continue
+
+            lengths = nx.single_source_dijkstra_path_length(graph, source, weight='weight')
+
+            for target in od_nodes:
+                if target in lengths:
+                    dist_matrix.at[source, target] = lengths[target]
 
         return dist_matrix
     
@@ -154,8 +179,12 @@ class TNDP:
         total_time = 0
 
         for origin in self.od_matrix.index:
+            if self.walk_node(origin) not in multimodal_graph:
+                continue
             for destination, demand in self.od_matrix.loc[origin].items():
                 if demand <= 0:
+                    continue
+                if self.walk_node(destination) not in multimodal_graph:
                     continue
                 length = self.get_shortest_path_time_in_multimodal(
                     multimodal_graph, origin, destination)
@@ -200,8 +229,8 @@ class TNDP:
         
 
     def evaluate_connectivity(self, network: TndpNetwork):
-        if 'connectivity' in network.objective_fitnesses:
-            return network.objective_fitnesses['connectivity']
+        # if 'connectivity' in network.objective_fitnesses:
+        #     return network.objective_fitnesses['connectivity']
         
         if network.multimodal_graph is None:
             mm_graph = self.build_multimodal_graph(network)
@@ -209,15 +238,27 @@ class TNDP:
             mm_graph = network.multimodal_graph
             
         total_connectivity = 0
-        
-        n = self.graph.number_of_nodes()
-        for i in range(1, n + 1):
-            for j in range(i + 1, n + 1):
-                base_time = self._shortest_path_times[i, j]
-                network_time = self.get_shortest_path_time_in_multimodal(mm_graph, i, j)
+        for origin in self.od_matrix.index:
+            if self.walk_node(origin) not in mm_graph:
+                continue
+
+            for destination in self.od_matrix.loc[origin].index:
+                if self.walk_node(destination) not in mm_graph or origin == destination:
+                    continue
+
+                base_time = self._shortest_path_times.loc[origin, destination] 
+                if not isinstance(base_time, (int, float)) or math.isnan(base_time) or base_time == 0:
+                    continue
+
+                network_time = self.get_shortest_path_time_in_multimodal(mm_graph, origin, destination)
                 total_connectivity += network_time / base_time
-                
-        p = (n * (n - 1)) / 2
+
+        p = sum(
+            1
+            for origin in self.od_matrix.index if self.walk_node(origin) in mm_graph
+            for destination in self.od_matrix.loc[origin].index
+            if self.walk_node(destination) in mm_graph and origin != destination
+        )
         
         network.objective_fitnesses['connectivity'] = total_connectivity / p
         
