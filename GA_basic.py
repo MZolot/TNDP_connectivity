@@ -62,7 +62,7 @@ class GeneticAlgorithm:
     def _crossover(self, parent1: TndpNetwork, parent2: TndpNetwork) -> TndpNetwork:
         k1 = random.randint(0, len(parent1.routes))
         k2 = random.randint(0, len(parent2.routes))
-        
+
         parent1_routes = random.sample(parent1.routes, k1)
         parent2_routes = random.sample(parent2.routes, k2)
 
@@ -159,22 +159,22 @@ class GeneticAlgorithm:
         log.close_log()
 
         return total_best_solution, total_best_fitness, best_solution_gen
-    
+
     def run_n_iterations(self, n):
         print('Running iteration 1...')
         total_best_solution, total_best_fitness, total_best_gen = self.generate_solution()
         all_results = [{'solution': total_best_solution,
                         'fitness': total_best_fitness,
-                        'gen': total_best_gen}]   
+                        'gen': total_best_gen}]
         for i in range(1, n):
             print(f'Running iteration {i+1}...')
-            solution, fitness, gen = self.generate_solution()       
+            solution, fitness, gen = self.generate_solution()
             all_results.append({'solution': solution,
-                        'fitness': total_best_fitness,
-                        'gen': gen})   
+                                'fitness': total_best_fitness,
+                                'gen': gen})
             if fitness < total_best_fitness:
                 total_best_solution = solution
                 total_best_fitness = fitness
                 total_best_gen = gen
-                
+
         return total_best_solution, total_best_fitness, total_best_gen, all_results
