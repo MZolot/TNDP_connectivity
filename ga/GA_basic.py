@@ -1,6 +1,6 @@
 import random
 
-import loggers
+from utils.loggers import GALoggerTxt
 from TNDP import TNDP, TndpNetwork
 
 
@@ -123,7 +123,7 @@ class GeneticAlgorithm:
         return sorted_pop[:self.elite_size]
 
     def generate_solution(self):
-        log = loggers.GALoggerTxt('log.txt', self)
+        log = GALoggerTxt('log.txt', self)
 
         population = self._generate_initial_population()
         total_best_solution, total_best_fitness = self._get_best_solution(

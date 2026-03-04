@@ -7,7 +7,7 @@ import geopandas as gpd
 from blocksnet.preprocessing.imputing import impute_buildings
 from blocksnet.preprocessing.imputing import impute_population
 
-from services_config import SERVICE_CAPACITY_RANGE
+from .services_config import SERVICE_CAPACITY_RANGE
 
 
 def assign_services_capacity(services_gdf, capacity_range_dict=SERVICE_CAPACITY_RANGE):

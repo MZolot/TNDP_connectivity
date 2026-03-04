@@ -450,19 +450,7 @@ def get_blocks_graph(graph: nx.MultiDiGraph, blocks, streets_graph, buildings, n
     ped_nodes, ped_edges = ox.graph_to_gdfs(graph)
     ped_nodes = ped_nodes.reset_index(drop=True)
 
-    steps = [
-        ("Getting existing connectors",
-         lambda: get_connector_points(blocks, ped_nodes)),
-        ("Getting edge intersections",
-         lambda: get_edge_intersection_points(blocks, ped_edges)),
-        ("Filtering nodes", None),
-        ("Merging nodes", None),
-        ("Filtering connectors", None),
-        ("Building blocks graph", None),
-        ("Merging with streets graph", None),
-    ]
-
-    with tqdm(total=len(steps), desc="Building blocks graph") as pbar:
+    with tqdm(total=7, desc="Building blocks graph") as pbar:
 
         pbar.set_description("Getting existing connectors")
         nodes_in_buffer = get_connector_points(blocks, ped_nodes)

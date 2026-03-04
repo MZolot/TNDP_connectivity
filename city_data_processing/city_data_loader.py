@@ -4,7 +4,7 @@ import osmnx as ox
 
 from iduedu import get_4326_boundary, get_intermodal_graph, get_drive_graph, get_walk_graph
 
-from services_config import SERVICE_OSM_TAGS
+from .services_config import SERVICE_OSM_TAGS
 
 CRS = 4326
 

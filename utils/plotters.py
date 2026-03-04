@@ -440,3 +440,19 @@ class CityPlotter():
         ctx.add_basemap(ax)
         ax.set_axis_off()
         plt.show()
+
+    def plot_graph_highlight_nodes(self, graph, ax=None, highlight_nodes=[]):
+        if ax is None:
+            _, ax = plt.subplots(1, 1, figsize=(10, 10))
+        nodes, edges = ox.graph_to_gdfs(nx.MultiDiGraph(graph))
+        edges.plot(ax=ax, linewidth=0.5, color="black")
+        nodes.plot(ax=ax, color="blue", markersize=1)
+
+        if len(highlight_nodes) > 0:
+            highlight_nodes_gdf = nodes.loc[highlight_nodes]
+            highlight_nodes_gdf.plot(
+                ax=ax,
+                color="red",
+                markersize=5,
+                zorder=5
+            )
