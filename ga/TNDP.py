@@ -1,8 +1,13 @@
 import math
 
 import networkx as nx
-import numpy as np
-import pandas as pd
+
+
+BUS_SPEED_KM_H = 25
+HUMAN_SPEED_KM_H = 5
+
+BUS_SPEED_M_MIN = (BUS_SPEED_KM_H * 1000) / 60
+HUMAN_SPEED_M_MIN = (HUMAN_SPEED_KM_H * 1000) / 60
 
 
 class TndpNetwork:
@@ -48,53 +53,29 @@ class TNDP:
         self.time_weight = time_weight
         self.cost_weight = cost_weight
         self.connectivity_weight = connectivity_weight
-        self._shortest_path_times = self._calculate_shortest_paths_for_matrix(
+        self._shortest_times = self._calculate_shortest_possible_times(
             self.pedestrian_graph)
 
-    def _calculate_shortest_paths_for_graph(self, graph):
-        n = graph.number_of_nodes()
-        dist_matrix = np.full((n + 1, n + 1), np.inf)
+    def _calculate_shortest_possible_times(self, graph):
+        centroids = [n for n, data in graph.nodes(
+            data=True) if data.get('type') == 'centroid']
 
-        nodes = sorted(graph.nodes())
+        def travel_time(u, v, data):
+            if data.get("on_street"):
+                length = data.get("length", 0)
+                return length / BUS_SPEED_M_MIN
+            else:
+                return data["weight"]
 
-        for i, source in enumerate(nodes):
+        travel_times = {}
+
+        for c in centroids:
             lengths = nx.single_source_dijkstra_path_length(
-                graph,
-                source,
-                weight='weight'
-            )
+                graph, c, weight=travel_time)
+            travel_times[c] = {t: lengths[t]
+                               for t in centroids if t in lengths and t != c}
 
-            for j, target in enumerate(nodes):
-                if target in lengths:
-                    dist_matrix[i + 1, j + 1] = lengths[target]
-
-        return dist_matrix
-
-    def _calculate_shortest_paths_for_matrix(self, graph):
-        od_nodes = list(self.od_matrix.index)
-        n = len(od_nodes)
-
-        dist_matrix = pd.DataFrame(
-            np.full((n, n), np.inf),
-            index=od_nodes,
-            columns=od_nodes
-        )
-
-        for source in od_nodes:
-            if source not in graph:
-                continue
-
-            lengths = nx.single_source_dijkstra_path_length(
-                graph, source, weight='weight')
-
-            for target in od_nodes:
-                if target in lengths:
-                    dist_matrix.at[source, target] = lengths[target]
-
-        return dist_matrix
-
-    def get_shortest_path_time_in_mandl(self, u, v):
-        return self._shortest_path_times[u, v]
+        return travel_times
 
     def walk_node(self, v):
         return (v, None)
@@ -219,18 +200,6 @@ class TNDP:
 
         return total_cost
 
-    def get_connectivity_for_node(self, multimodal_graph, node_id):
-        number_of_nodes = len(self.graph.nodes)
-        total_connectivity = 0
-        for j in range(1, number_of_nodes + 1):
-            if j == node_id:
-                continue
-            base_time = self._shortest_path_times[node_id, j]
-            network_time = self.get_shortest_path_time_in_multimodal(
-                multimodal_graph, node_id, j)
-            total_connectivity += network_time / base_time
-        return total_connectivity / (number_of_nodes - 1)
-
     def evaluate_connectivity(self, network: TndpNetwork):
         if 'connectivity' in network.objective_fitnesses:
             return network.objective_fitnesses['connectivity']
@@ -249,7 +218,7 @@ class TNDP:
                 if self.walk_node(destination) not in mm_graph or origin == destination:
                     continue
 
-                base_time = self._shortest_path_times.loc[origin, destination]
+                base_time = self._shortest_times[origin][destination]
                 if not isinstance(base_time, (int, float)) or math.isnan(base_time) or base_time == 0:
                     continue
 
