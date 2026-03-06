@@ -303,147 +303,84 @@ def build_block_graph(blocks_gdf, buildings_gdf, G_pedestrian, connectors_gdf, w
     return G_quarters
 
 
+def get_edge_to_connectors(G_streets, G_blocks, epsilon=5):
+    connectors = [n for n in G_blocks.nodes if isinstance(
+        n, str) and n.endswith('_connect')]
+    edge_to_connectors = {}
+
+    for K in connectors:
+        point = G_blocks.nodes[K]['geometry']
+
+        for u, v, data in G_streets.edges(data=True):
+            line = data['geometry']
+            if line.distance(point) < epsilon:
+                edge_to_connectors.setdefault((u, v), []).append(K)
+                break
+
+    return edge_to_connectors
+
+
 def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
-    # --- 0. Приводим граф улиц к MultiGraph (неориентированный) ---
-    G_streets_undir = nx.MultiGraph(G_streets)
+    G_streets_undir = nx.Graph(G_streets)
+    G_blocks_undir = nx.Graph(G_blocks)
 
-    # --- 1. Преобразуем граф улиц в GeoDataFrame и CRS 3857 ---
-    nodes_gdf, edges_gdf = ox.graph_to_gdfs(G_streets_undir)
-    nodes_gdf_3857 = nodes_gdf.to_crs(epsg=3857)
-    edges_gdf_3857 = edges_gdf.to_crs(epsg=3857).reset_index()
+    for n, data in G_streets_undir.nodes(data=True):
+        data['type'] = 'street'
+        if 'geometry' not in data:
+            data['geometry'] = Point(data['x'], data['y'])
 
-    # --- 2. Создаём новый граф ---
-    G_new = nx.MultiDiGraph()
+    for u, v, data in G_blocks_undir.edges(data=True):
+        data['type'] = 'connector'
 
-    # копируем узлы улиц
-    for node_id, data in nodes_gdf_3857.iterrows():
-        attrs = {str(k): v for k, v in data.drop(['x', 'y', 'osmid']).to_dict().items()}
-        attrs["on_street"] = True
-        G_new.add_node(node_id, x=data['x'], y=data['y'], **attrs)
+    G_combined = nx.compose(G_streets_undir, G_blocks_undir)
 
-    # копируем рёбра улиц
-    for idx, row in edges_gdf_3857.iterrows():
-        u, v, key = row['u'], row['v'], row['key']
-        data = row.drop(['u', 'v', 'key']).to_dict()
-        attrs = {str(k): v for k, v in data.items()}
-        G_new.add_edge(u, v, **attrs)
+    for n in G_combined.nodes:
+        G_combined.nodes[n]['on_street'] = False
+    for n in G_streets_undir.nodes:
+        G_combined.nodes[n]['on_street'] = True
+    for u, v in G_streets_undir.edges:
+        if G_combined.has_edge(u, v):
+            G_combined[u][v]['on_street'] = True
 
-    # --- 3. Группируем коннекторы по ближайшему ребру ---
-    connectors_by_edge = defaultdict(list)
-    outside_connectors = []
+    edge_to_connectors = get_edge_to_connectors(
+        G_streets_undir, G_blocks_undir, epsilon)
 
-    for node_id, data in G_blocks.nodes(data=True):
-        if not str(node_id).endswith("_connect"):
-            continue
+    for (u, v), Ks in edge_to_connectors.items():
+        if G_combined.has_edge(u, v):
+            G_combined.remove_edge(u, v)
 
-        point = Point(data["x"], data["y"])
-        edges_nonnull = edges_gdf_3857[edges_gdf_3857.geometry.notnull()]
-        distances = edges_nonnull.distance(point)
-        if not distances.empty:
-            nearest_edge_idx = distances.idxmin()
-            min_dist = distances.loc[nearest_edge_idx]
-        else:
-            min_dist = float('inf')
+        line = G_streets_undir[u][v]['geometry']
 
-        if min_dist <= epsilon:
-            u = edges_nonnull.loc[nearest_edge_idx, "u"]
-            v = edges_nonnull.loc[nearest_edge_idx, "v"]
-            connectors_by_edge[(u, v)].append(node_id)
-        else:
-            outside_connectors.append(node_id)
-            # добавляем узел вне улицы
-            G_new.add_node(
-                node_id,
-                x=data["x"],
-                y=data["y"],
-                blocks=data.get("blocks", []),
-                on_street=False
-            )
+        nodes = [u] + Ks + [v]
 
-    # --- 4. Вставляем коннекторы на ребра ---
-    for (u, v), conns in connectors_by_edge.items():
-        street_edge = edges_gdf_3857[
-            (edges_gdf_3857['u'] == u) & (edges_gdf_3857['v'] == v)
-        ].iloc[0]
-        geom = cast(BaseGeometry, street_edge.geometry)
-
-        conns_sorted = sorted(
-            conns,
-            key=lambda nid: geom.project(
-                Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"])
-            )
+        nodes_sorted = sorted(
+            nodes,
+            key=lambda n: line.project(G_combined.nodes[n]['geometry'])
         )
 
-        nodes_chain = [u] + conns_sorted + [v]
-        points_chain = (
-            [Point(geom.coords[0])] +
-            [Point(G_blocks.nodes[nid]["x"], G_blocks.nodes[nid]["y"]) for nid in conns_sorted] +
-            [Point(geom.coords[-1])]
-        )
+        for k in Ks:
+            G_combined.nodes[k]['on_street'] = True
 
-        # удаляем старое ребро
-        keys_to_remove = list(G_new[u][v].keys())
-        for k in keys_to_remove:
-            G_new.remove_edge(u, v, k)
+        for n1, n2 in zip(nodes_sorted[:-1], nodes_sorted[1:]):
+            p1 = G_combined.nodes[n1]['geometry']
+            p2 = G_combined.nodes[n2]['geometry']
+            segment = LineString([p1, p2])
 
-        for i in range(len(nodes_chain)-1):
-            n1, n2 = nodes_chain[i], nodes_chain[i+1]
-            p1, p2 = points_chain[i], points_chain[i+1]
+            if G_combined.has_edge(n1, n2):
+                G_combined.remove_edge(n1, n2)
 
-            for n, p in [(n1, p1), (n2, p2)]:
-                if n not in G_new:
-                    attrs = {"on_street": True}
-                    if str(n).endswith("_connect"):
-                        attrs["blocks"] = G_blocks.nodes[n].get("blocks", [])
-                    G_new.add_node(n, x=p.x, y=p.y, **attrs)
+            G_combined.add_edge(
+                n1,
+                n2,
+                geometry=segment,
+                length=segment.length,
+                on_street=True,
+                type='street'
+            )
 
-            line_seg = LineString([p1, p2])
-            G_new.add_edge(n1, n2, geometry=line_seg, length=line_seg.length)
+    G_combined.graph['crs'] = 3857
 
-    # --- 5. Добавляем блоки, соединённые с коннекторами ---
-    for node_id, data in G_blocks.nodes(data=True):
-        if not str(node_id).endswith("_connect"):
-            continue
-
-        neighbors = [
-            n for n in G_blocks.predecessors(node_id)
-            if str(n).endswith("_block")
-        ]
-
-        for block_node in neighbors:
-            x_block = G_blocks.nodes[block_node]["x"]
-            y_block = G_blocks.nodes[block_node]["y"]
-
-            if block_node not in G_new:
-                G_new.add_node(
-                    block_node,
-                    x=x_block,
-                    y=y_block,
-                    on_street=False  # NEW
-                )
-
-            edge_data_dict = G_blocks.get_edge_data(block_node, node_id)
-
-            if isinstance(edge_data_dict, dict) and any(
-                isinstance(v, dict) for v in edge_data_dict.values()
-            ):
-                edge_items = edge_data_dict.items()
-            else:
-                edge_items = [(None, edge_data_dict)]
-
-            for edge_key, edge_data in edge_items:
-                connector_geom = edge_data["geometry"]
-                G_new.add_edge(
-                    block_node,
-                    node_id,
-                    geometry=connector_geom,
-                    length_meter=connector_geom.length,
-                    weight=connector_geom.length,
-                    type="connector"
-                )
-
-    G_new.graph['crs'] = 'EPSG:3857'
-    return G_new
+    return nx.MultiGraph(G_combined)
 
 
 def get_blocks_graph(graph: nx.MultiDiGraph, blocks, streets_graph, buildings, node_merge_dist=70, connectors_count=5):
@@ -499,7 +436,7 @@ def get_blocks_graph(graph: nx.MultiDiGraph, blocks, streets_graph, buildings, n
         )
         pbar.update(1)
 
-        G_fin = merge_blocks_into_streets(streets_graph, G_blocks)
+        G_fin = merge_blocks_into_streets(streets_graph, G_blocks, 50)
         pbar.update(1)
 
     return G_fin
