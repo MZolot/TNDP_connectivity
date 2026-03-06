@@ -11,10 +11,6 @@ from .services_config import SERVICE_CAPACITY_RANGE
 
 
 def assign_services_capacity(services_gdf, capacity_range_dict=SERVICE_CAPACITY_RANGE):
-    """
-    Добавляет столбец 'capacity' к GeoDataFrame сервисов.
-    Можно делать разные диапазоны для разных типов сервисов.
-    """
     capacities = []
     for stype in services_gdf['service_type']:
         if stype in capacity_range_dict.keys():
@@ -116,7 +112,10 @@ def assign_blocks_to_services(services_gdf, blocks_gdf):
     polygons_split = polygons_split[
         polygons_split['capacity_part'] >= 5
     ].copy()
-
+    
+    points_joined = points_joined.loc[:, ~points_joined.columns.duplicated()]
+    polygons_split = polygons_split.loc[:, ~polygons_split.columns.duplicated()]
+    
     services_processed = pd.concat(
         [points_joined, polygons_split],
         ignore_index=True
@@ -126,6 +125,8 @@ def assign_blocks_to_services(services_gdf, blocks_gdf):
 
 
 def generate_od_matrix(blocks_gdf, services_gdf):
+    blocks_gdf = blocks_gdf.copy()
+    
     blocks_gdf['population'] = blocks_gdf['population'].fillna(0)
     blocks_gdf['attraction'] = blocks_gdf['block_id'].map(
         services_gdf.groupby('block_id')['capacity_part'].sum()

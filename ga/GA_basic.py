@@ -1,7 +1,7 @@
 import random
 
 from utils.loggers import GALoggerTxt
-from TNDP import TNDP, TndpNetwork
+from .TNDP import TNDP, TndpNetwork
 
 
 class GeneticAlgorithm:
@@ -133,6 +133,10 @@ class GeneticAlgorithm:
                            population, total_best_fitness)
 
         for gen in range(self.n_generations):
+            print(gen, end=' ')
+            if gen % 10 == 0:
+                print()
+                
             gen_best_solution, gen_best_fitness = self._get_best_solution(
                 population)
 

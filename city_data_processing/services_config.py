@@ -104,13 +104,13 @@ SERVICE_CAPACITY_RANGE = {
     "pharmacy":                 (10, 50),
     "fuel":                     (10, 50),
     "beach":                    (500, 1000),
-    "train_building":           (100, 500),
+    "train_building":           (500, 1000),
     "bank":                     (100, 500),
     "lawyer":                   (10, 50),
     "cafe":                     (10, 100),
     "hairdresser":              (10, 50),
     "restaurant":               (10, 100),
-    "bar":                      (10, 100),
+    "bar":                      (50, 200),
     "park":                     (100, 200),
     "government":               (10, 100),
     "hotel":                    (100, 500),
@@ -121,5 +121,7 @@ SERVICE_CAPACITY_RANGE = {
     "bakery":                   (10, 100),
     "parking":                  (10, 100),
     "library":                  (50, 500),
+    "train_station":            (500, 1000),
+    
     "research":                 (100, 1000)
 }
