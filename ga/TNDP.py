@@ -1,5 +1,6 @@
 import math
 
+import numpy as np
 import networkx as nx
 
 
@@ -43,7 +44,8 @@ class TNDP:
                  max_network_size=20,
                  time_weight=1.0,
                  cost_weight=1.0,
-                 connectivity_weight=10000.0) -> None:
+                 connectivity_weight=10000.0,
+                 mandl=False) -> None:
 
         self.graph = graph
         self.pedestrian_graph = pedestrian_graph
@@ -53,10 +55,35 @@ class TNDP:
         self.time_weight = time_weight
         self.cost_weight = cost_weight
         self.connectivity_weight = connectivity_weight
-        self._shortest_times = self._calculate_shortest_possible_times(
-            self.pedestrian_graph)
+        self.mandl = mandl
 
-    def _calculate_shortest_possible_times(self, graph):
+        if mandl:
+            self._shortest_times = self._calculate_shortest_possible_times_mandl(
+                self.graph)
+        else:
+            self._shortest_times = self._calculate_shortest_possible_times_real(
+                self.pedestrian_graph)
+
+    def _calculate_shortest_possible_times_mandl(self, graph):
+        n = graph.number_of_nodes()
+        dist_matrix = np.full((n + 1, n + 1), np.inf)
+
+        nodes = sorted(graph.nodes())
+
+        for i, source in enumerate(nodes):
+            lengths = nx.single_source_dijkstra_path_length(
+                graph,
+                source,
+                weight='weight'
+            )
+
+            for j, target in enumerate(nodes):
+                if target in lengths:
+                    dist_matrix[i + 1, j + 1] = lengths[target]
+
+        return dist_matrix
+
+    def _calculate_shortest_possible_times_real(self, graph):
         centroids = [n for n, data in graph.nodes(
             data=True) if data.get('type') == 'centroid']
 
@@ -200,7 +227,31 @@ class TNDP:
 
         return total_cost
 
-    def evaluate_connectivity(self, network: TndpNetwork):
+    def evaluate_connectivity_mandl(self, network: TndpNetwork):
+        if 'connectivity' in network.objective_fitnesses:
+            return network.objective_fitnesses['connectivity']
+
+        if network.multimodal_graph is None:
+            mm_graph = self.build_multimodal_graph(network)
+        else:
+            mm_graph = network.multimodal_graph
+
+        total_connectivity = 0
+
+        n = self.graph.number_of_nodes()
+        for i in range(1, n + 1):
+            for j in range(i + 1, n + 1):
+                base_time = self._shortest_times[i, j]
+                network_time = self.get_shortest_path_time_in_multimodal(mm_graph, i, j)
+                total_connectivity += network_time / base_time
+
+        p = (n * (n - 1)) / 2
+
+        network.objective_fitnesses['connectivity'] = total_connectivity / p
+
+        return total_connectivity / p
+
+    def evaluate_connectivity_real(self, network: TndpNetwork):
         if 'connectivity' in network.objective_fitnesses:
             return network.objective_fitnesses['connectivity']
 
@@ -244,11 +295,28 @@ class TNDP:
         weighted_time_fitness = self.time_weight * \
             self.evaluate_total_time(network)
         weighted_cost_fitness = self.cost_weight * self.evaluate_cost(network)
-        weighted_connectivity_fitness = self.connectivity_weight * \
-            self.evaluate_connectivity(network)
+
+        if self.mandl:
+            weighted_connectivity_fitness = self.connectivity_weight * \
+                self.evaluate_connectivity_mandl(network)
+        else:
+            weighted_connectivity_fitness = self.connectivity_weight * \
+                self.evaluate_connectivity_real(network)
+
         total_fintess = weighted_time_fitness + \
             weighted_cost_fitness + weighted_connectivity_fitness
 
         network.total_fintess = total_fintess
 
         return total_fintess
+    
+    def get_connectivity_for_node(self, multimodal_graph, node_id):
+        number_of_nodes = len(self.graph.nodes)
+        total_connectivity = 0
+        for j in range(1, number_of_nodes + 1):
+            if j == node_id: 
+                continue
+            base_time = self._shortest_times[node_id, j]
+            network_time = self.get_shortest_path_time_in_multimodal(multimodal_graph, node_id, j)
+            total_connectivity += network_time / base_time
+        return total_connectivity / (number_of_nodes - 1)
