@@ -134,7 +134,7 @@ class GeneticAlgorithm:
 
         for gen in range(self.n_generations):
             print(gen, end=' ')
-            if gen % 10 == 0:
+            if (gen != 0) and (gen % 10 == 0):
                 print()
                 
             gen_best_solution, gen_best_fitness = self._get_best_solution(
@@ -158,7 +158,8 @@ class GeneticAlgorithm:
                 new_population.append(child)
 
             population = new_population
-
+            
+        print()
         log.log_result(total_best_fitness)
         log.close_log()
 
@@ -171,7 +172,7 @@ class GeneticAlgorithm:
                         'fitness': total_best_fitness,
                         'gen': total_best_gen}]
         for i in range(1, n):
-            print(f'Running iteration {i+1}...')
+            print(f'\nRunning iteration {i+1}...')
             solution, fitness, gen = self.generate_solution()
             all_results.append({'solution': solution,
                                 'fitness': total_best_fitness,

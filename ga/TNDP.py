@@ -2,6 +2,7 @@ import math
 
 import numpy as np
 import networkx as nx
+import pandas as pd
 
 
 BUS_SPEED_KM_H = 25
@@ -242,7 +243,8 @@ class TNDP:
         for i in range(1, n + 1):
             for j in range(i + 1, n + 1):
                 base_time = self._shortest_times[i, j]
-                network_time = self.get_shortest_path_time_in_multimodal(mm_graph, i, j)
+                network_time = self.get_shortest_path_time_in_multimodal(
+                    mm_graph, i, j)
                 total_connectivity += network_time / base_time
 
         p = (n * (n - 1)) / 2
@@ -309,14 +311,15 @@ class TNDP:
         network.total_fintess = total_fintess
 
         return total_fintess
-    
+
     def get_connectivity_for_node(self, multimodal_graph, node_id):
         number_of_nodes = len(self.graph.nodes)
         total_connectivity = 0
         for j in range(1, number_of_nodes + 1):
-            if j == node_id: 
+            if j == node_id:
                 continue
             base_time = self._shortest_times[node_id, j]
-            network_time = self.get_shortest_path_time_in_multimodal(multimodal_graph, node_id, j)
+            network_time = self.get_shortest_path_time_in_multimodal(
+                multimodal_graph, node_id, j)
             total_connectivity += network_time / base_time
         return total_connectivity / (number_of_nodes - 1)
