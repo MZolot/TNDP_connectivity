@@ -2,8 +2,9 @@ __pycache__/
 .iduedu_cache/
 cache/
 *.py[cod]
-.ipynb
-.geojson
-.txt
-.png
-.csv
+*.ipynb
+*.geojson
+*.txt
+*.png
+*.csv
+*.gpkg
