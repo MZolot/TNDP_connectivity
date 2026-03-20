@@ -112,10 +112,11 @@ def assign_blocks_to_services(services_gdf, blocks_gdf):
     polygons_split = polygons_split[
         polygons_split['capacity_part'] >= 5
     ].copy()
-    
+
     points_joined = points_joined.loc[:, ~points_joined.columns.duplicated()]
-    polygons_split = polygons_split.loc[:, ~polygons_split.columns.duplicated()]
-    
+    polygons_split = polygons_split.loc[:,
+                                        ~polygons_split.columns.duplicated()]
+
     services_processed = pd.concat(
         [points_joined, polygons_split],
         ignore_index=True
@@ -126,11 +127,15 @@ def assign_blocks_to_services(services_gdf, blocks_gdf):
 
 def generate_od_matrix(blocks_gdf, services_gdf):
     blocks_gdf = blocks_gdf.copy()
-    
+
     blocks_gdf['population'] = blocks_gdf['population'].fillna(0)
+    attraction_series = (
+        services_gdf
+        .groupby('block_id')['capacity_part']
+        .sum()
+    )
     blocks_gdf['attraction'] = blocks_gdf['block_id'].map(
-        services_gdf.groupby('block_id')['capacity_part'].sum()
-    ).fillna(0)
+        attraction_series).fillna(0)
 
     blocks_gdf['centroid'] = blocks_gdf.geometry.centroid
 
@@ -174,26 +179,24 @@ def generate_od_matrix(blocks_gdf, services_gdf):
 
 
 def generate_connector_od_matrix(graph, block_od_matrix):
-    # список коннекторов
-    connectors = [n for n, data in graph.nodes(data=True) if str(n).endswith("_connect")]
-    
-    # создаём пустую матрицу
-    connector_od = pd.DataFrame(0, index=connectors, columns=connectors, dtype=float)
-    
-    # проходим по всем парам коннекторов
+    connectors = [n for n, data in graph.nodes(
+        data=True) if str(n).endswith("_connect")]
+
+    connector_od = pd.DataFrame(
+        0, index=connectors, columns=connectors, dtype=float)
+
     for from_node in tqdm(connectors, desc="Building connector OD matrix"):
         from_blocks = graph.nodes[from_node].get('blocks', [])
         for to_node in connectors:
             to_blocks = graph.nodes[to_node].get('blocks', [])
-            
-            # суммируем спрос между блоками
+
             total_demand = sum(
                 block_od_matrix.loc[f_block, t_block]
                 for f_block in from_blocks
                 for t_block in to_blocks
             )
             connector_od.loc[from_node, to_node] = total_demand
-    
+
     return connector_od
 
 
