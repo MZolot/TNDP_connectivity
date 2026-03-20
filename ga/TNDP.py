@@ -130,10 +130,9 @@ class TNDP:
         transfer_time = 0
         route_id = 0
         for route in network.routes:
-            stops = route['path']
-            for i in range(len(stops) - 1):
-                u = stops[i]
-                v = stops[i + 1]
+            for i in range(len(route) - 1):
+                u = route[i]
+                v = route[i + 1]
                 weight = self.graph.get_edge_data(u, v)["weight"]
 
                 network_graph.add_edge(self.route_node(u, route_id),
@@ -216,10 +215,9 @@ class TNDP:
         total_cost = 0
 
         for route in network.routes:
-            stops = route['path']
-            for i in range(len(stops) - 1):
-                u = stops[i]
-                v = stops[i + 1]
+            for i in range(len(route) - 1):
+                u = route[i]
+                v = route[i + 1]
                 weight = self.graph.get_edge_data(u, v)["weight"]
 
                 total_cost = total_cost + self.edge_cost(weight)

@@ -32,7 +32,7 @@ class GeneticAlgorithm:
         seen = set()
 
         for route in routes:
-            sig = tuple(route['path'])  # или route_signature(route)
+            sig = tuple(route)
             if sig not in seen:
                 seen.add(sig)
                 unique.append(route)

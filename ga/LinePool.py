@@ -53,11 +53,11 @@ def get_line_pool_mandl(graph,
     final_pool = []
     for line in pool_tmp:
         if line['demand'] >= demand_threshold:
-            final_pool.append(line)
+            final_pool.append(line['path'])
             continue
 
         if any(lines_per_stop[stop] <= min_lines_per_stop for stop in line['path']):
-            final_pool.append(line)
+            final_pool.append(line['path'])
         else:
             for stop in line['path']:
                 lines_per_stop[stop] -= 1
@@ -191,20 +191,17 @@ def get_line_pool_connectors_only(
     theta=0.5,
     min_lines_per_stop=2
 ):
-    # --- 1. Формируем OD-пары коннекторов с ненулевым спросом ---
     od_pairs = (
         od_matrix_connectors
         .stack()
         .loc[lambda x: x > 1]  # только пары с спросом > 1
         .index
     )
-    # уникальные пары без дублирования
     od_pairs = [(i, j) for i, j in od_pairs if i < j]
 
     pool = []
     lines_per_stop = {n: 0 for n in G_routing.nodes}
 
-    # --- 2. Генератор кратчайших путей с учётом длины ребра ---
     def edge_weight(u, v, data):
         val = data.get("length_meter", np.inf)
         if isinstance(val, list):
@@ -218,7 +215,6 @@ def get_line_pool_connectors_only(
             )
 
             for path in itertools.islice(paths_generator, k_shortest_paths):
-                # длина маршрута
                 length = sum(
                     edge_weight(u, v, G_routing.get_edge_data(u, v, k))
                     for u, v, k in zip(path[:-1], path[1:], [list(G_routing[u][v].keys())[0] for u, v in zip(path[:-1], path[1:])])
@@ -227,11 +223,9 @@ def get_line_pool_connectors_only(
                 if not (min_path_length <= length <= max_path_length):
                     continue
 
-                # узлы-коннекторы на пути
                 connect_nodes = [n for n in path if str(
                     n).endswith("_connect")]
 
-                # суммарный спрос между коннекторами
                 demand_sum = 0
                 for i in range(len(connect_nodes)):
                     for j in range(i + 1, len(connect_nodes)):
@@ -250,25 +244,23 @@ def get_line_pool_connectors_only(
         except (nx.NetworkXNoPath, nx.NodeNotFound):
             continue
 
-    # --- 3. Пороговое значение спроса ---
     demands = np.array([l['demand'] for l in pool])
     if len(demands) > 0:
         demand_threshold = np.percentile(demands, theta * 100)
     else:
         demand_threshold = 0
-
-    # --- 4. Финальная фильтрация ---
+        
     final_pool = []
     for line in pool:
         path = line['path']
         line_demand = line['demand']
 
         if line_demand >= demand_threshold:
-            final_pool.append(line)
+            final_pool.append(path)
             continue
 
         if any(lines_per_stop[stop] <= min_lines_per_stop for stop in path):
-            final_pool.append(line)
+            final_pool.append(path)
             continue
 
         for stop in path:
