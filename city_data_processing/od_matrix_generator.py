@@ -152,16 +152,19 @@ def generate_od_matrix(blocks_gdf, services_gdf):
     P = blocks_gdf['population'].values
 
     T = np.zeros((n, n))
-    for i in range(n):
-        for j in range(n):
-            pop_avg = (P[i] + P[j]) / 2
-            attr_avg = (A[i] + A[j]) / 2
-            T[i, j] = pop_avg * attr_avg * decay[i, j]
+    P_i = P[:, None]
+    P_j = P[None, :]
+    A_i = A[:, None]
+    A_j = A[None, :]
 
-    for i in range(n):
-        row_sum = T[i, :].sum()
-        if row_sum > 0:
-            T[i, :] = T[i, :] * P[i] / row_sum
+    pop_avg = (P_i + P_j) / 2
+    attr_avg = (A_i + A_j) / 2
+
+    T = pop_avg * attr_avg * decay
+
+    row_sums = T.sum(axis=1, keepdims=True)
+    row_sums[row_sums == 0] = 1
+    T = T * (P[:, None] / row_sums)
 
     od_matrix = pd.DataFrame(
         T,
