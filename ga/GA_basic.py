@@ -5,7 +5,6 @@ from .TNDP import TNDP, TndpNetwork
 
 
 class GeneticAlgorithm:
-
     def __init__(self,
                  tndp: TNDP,
                  initial_population_size,
@@ -20,6 +19,34 @@ class GeneticAlgorithm:
         self.elitism_percent = elitism_percent
         self.elite_size = int(
             initial_population_network_size * elitism_percent)
+
+    def __repr__(self) -> str:
+        tab = '                  '
+
+        population_size = f'Population size={self.population_size}'
+        network_size = f'Initial network size={self.network_size}'
+        n_generations = f'Generations={self.n_generations}'
+        elitism_percent = f'Elitism percent={self.elitism_percent}'
+        return f'Genetic algorithm({population_size};\n{tab}{network_size};\n{tab}{n_generations};\n{tab}{elitism_percent})'
+
+    def to_dict(self):
+        return {
+            "population_size": self.population_size,
+            "network_size": self.network_size,
+            "n_generations": self.n_generations,
+            "elitism_percent": self.elitism_percent,
+            "elite_size": self.elite_size,
+        }
+
+    @classmethod
+    def from_dict(cls, data, tndp):
+        return cls(
+            tndp=tndp,
+            initial_population_size=data["population_size"],
+            initial_population_network_size=data["network_size"],
+            n_generations=data["n_generations"],
+            elitism_percent=data["elitism_percent"]
+        )
 
     def _walk_node(self, v):
         return (v, None)
@@ -136,7 +163,7 @@ class GeneticAlgorithm:
             print(gen, end=' ')
             if (gen != 0) and (gen % 10 == 0):
                 print()
-                
+
             gen_best_solution, gen_best_fitness = self._get_best_solution(
                 population)
 
@@ -158,7 +185,7 @@ class GeneticAlgorithm:
                 new_population.append(child)
 
             population = new_population
-            
+
         print()
         log.log_result(total_best_fitness)
         log.close_log()

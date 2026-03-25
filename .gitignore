@@ -8,3 +8,6 @@ cache/
 *.png
 *.csv
 *.gpkg
+*.json
+*.pkl
+*.parquet

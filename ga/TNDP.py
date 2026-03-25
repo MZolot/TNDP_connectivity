@@ -1,4 +1,5 @@
 import math
+import json
 
 import numpy as np
 import networkx as nx
@@ -13,17 +14,20 @@ HUMAN_SPEED_M_MIN = (HUMAN_SPEED_KM_H * 1000) / 60
 
 
 class TndpNetwork:
-    def __init__(self, routes):
+    def __init__(self, routes, objective_fitnesses=None, total_fitness=-1):
         self.routes = routes
-        self.total_fintess: float = -1
-        self.objective_fitnesses = {}
+        self.total_fintess: float = total_fitness
+        self.objective_fitnesses = objective_fitnesses if objective_fitnesses is not None else {}
         self.multimodal_graph: nx.Graph | None = None
 
     def __len__(self) -> int:
         return len(self.routes)
 
     def __str__(self) -> str:
-        return f'TNDP network with {len(self.routes)}, weighted fitness: {self.total_fintess}'
+        fitness = f'weighted fitness: {self.total_fintess:.0f}'
+        objectives = [
+            f'{i}: {self.objective_fitnesses[i]:.3f}' for i in self.objective_fitnesses.keys()]
+        return f'TNDP network with {len(self.routes)} routes, {fitness}\nobjective fitnesses: {objectives}'
 
     def __repr__(self) -> str:
         tab = '             '
@@ -32,6 +36,22 @@ class TndpNetwork:
         objectives = [
             f'{i}: {self.objective_fitnesses[i]:.3f}' for i in self.objective_fitnesses.keys()]
         return f'TNDP Network({routes};\n{tab}{fitness};\n{tab}{objectives})'
+
+    def to_dict(self):
+        return {
+            "routes": self.routes,
+            "objective_fitnesses": self.objective_fitnesses,
+            "total_fitness": self.total_fintess,
+            "num_routes": len(self.routes)
+        }
+
+    @classmethod
+    def from_dict(cls, data):
+        return cls(
+            routes=data["routes"],
+            objective_fitnesses=data["objective_fitnesses"],
+            total_fitness=data["total_fitness"]
+        )
 
 
 class TNDP:
@@ -64,6 +84,40 @@ class TNDP:
         else:
             self._shortest_times = self._calculate_shortest_possible_times_real(
                 self.pedestrian_graph)
+
+    def __repr__(self) -> str:
+        tab = '     '
+        max_network_size = f'Max network size={self.max_network_size}'
+        time_weight = f'time={self.time_weight}'
+        cost_weight = f'cost={self.cost_weight}'
+        connectivity_weight = f'connectivity={self.connectivity_weight}'
+        weight_tab = tab + '         '
+        weight = f'Weights: {time_weight}\n{weight_tab}{cost_weight}\n{weight_tab}{connectivity_weight}'
+        graph_type = 'Graph type: ' + ('Mandle' if self.mandl else 'Real')
+        return f'TNDP({graph_type};\n{tab}{max_network_size};\n{tab}{weight})'
+
+    def to_dict(self):
+        return {
+            "max_network_size": self.max_network_size,
+            "time_weight": self.time_weight,
+            "cost_weight": self.cost_weight,
+            "connectivity_weight": self.connectivity_weight,
+            "mandl": self.mandl
+        }
+
+    @classmethod
+    def from_dict(cls, data, graph, pedestrian_graph, od_matrix, line_pool):
+        return cls(
+            graph=nx.Graph(graph),
+            pedestrian_graph=nx.Graph(pedestrian_graph),
+            od_matrix=od_matrix,
+            line_pool=line_pool,
+            max_network_size=data["max_network_size"],
+            time_weight=data["time_weight"],
+            cost_weight=data["cost_weight"],
+            connectivity_weight=data["connectivity_weight"],
+            mandl=data["mandl"]
+        )
 
     def _calculate_shortest_possible_times_mandl(self, graph):
         n = graph.number_of_nodes()
