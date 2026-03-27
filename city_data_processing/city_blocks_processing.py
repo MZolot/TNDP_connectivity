@@ -383,7 +383,7 @@ def merge_blocks_into_streets(G_streets, G_blocks, epsilon=5):
     return nx.MultiGraph(G_combined)
 
 
-def get_blocks_graph(graph: nx.MultiDiGraph, blocks, streets_graph, buildings, node_merge_dist=70, connectors_count=5):
+def get_blocks_graph(graph, blocks, streets_graph, buildings, node_merge_dist=70, connectors_count=5):
     ped_nodes, ped_edges = ox.graph_to_gdfs(graph)
     ped_nodes = ped_nodes.reset_index(drop=True)
 

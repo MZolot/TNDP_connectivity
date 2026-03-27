@@ -11,3 +11,4 @@ cache/
 *.json
 *.pkl
 *.parquet
+*.npy

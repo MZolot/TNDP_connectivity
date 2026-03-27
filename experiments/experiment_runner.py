@@ -1,7 +1,7 @@
 import Mandl
-import LinePool
-import TNDP
-import GA_basic
+import ga.LinePool as lp
+import ga.TNDP as TNDP
+import ga.GA_basic as GA
 
 import csv
 import time
@@ -11,7 +11,7 @@ mandl_graph = mandl_network.graph
 mandl_pedestrian = mandl_network.graph_pedestrian
 mandl_od = mandl_network.od_matrix
 
-line_pool = LinePool.get_line_pool(mandl_graph, mandl_od, 10, 16, 59, 0.7, 2)
+line_pool = lp.get_line_pool_mandl(mandl_graph, mandl_od, 10, 16, 59, 0.7, 2)
 
 
 class Parameter():
@@ -87,12 +87,13 @@ for tested_parameter in experiment_params.keys():
                             max_network_size=current_params['max_network_size'],
                             time_weight=1,
                             cost_weight=0.2,
-                            connectivity_weight=10000)
+                            connectivity_weight=10000,
+                            mandl=True)
             
             
             start = time.perf_counter()
 
-            ga = GA_basic.GeneticAlgorithm(tndp,
+            ga = GA.GeneticAlgorithm(tndp,
                                         initial_population_size=current_params['initial_population_size'],
                                         initial_population_network_size=current_params['initial_network_size'],
                                         n_generations=current_params['generations'])

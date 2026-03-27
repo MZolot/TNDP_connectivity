@@ -8,15 +8,15 @@ import matplotlib.pyplot as plt
 
 
 DEFAULT_COLORS = ['red', 'darkorange', 'gold', 'yellow', 'lime',
-          'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
-          'magenta', 'deeppink', 'coral', 'grey', 'black',
-          'purple', 'maroon', 'saddlebrown', 'olive', 'teal',
-          'salmon', 'peru', 'tan', 'palegreen', 'aquamarine',
-          'powderblue', 'royalblue', 'indigo', 'navy', 'plum']
+                  'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
+                  'magenta', 'deeppink', 'coral', 'grey', 'black',
+                  'purple', 'maroon', 'saddlebrown', 'olive', 'teal',
+                  'salmon', 'peru', 'tan', 'palegreen', 'aquamarine',
+                  'powderblue', 'royalblue', 'indigo', 'navy', 'plum']
 
 DEFAULT_COLORS_SHORT = ['red', 'darkorange', 'gold', 'lime',
-                'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
-                'magenta']
+                        'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
+                        'magenta']
 
 
 def get_route_geometries(G, route):
@@ -55,7 +55,7 @@ class CityPlotter():
             ax.set_axis_off()
         ctx.add_basemap(ax)
         return ax
-    
+
     def plot_base_graph(self, graph, ax):
         nodes, edges = ox.graph_to_gdfs(nx.MultiDiGraph(graph))
         nodes = nodes.to_crs(epsg=3857)
@@ -80,7 +80,7 @@ class CityPlotter():
                 color='none',
                 linewidth=3
             )
-        
+
         self.plot_base_graph(graph, ax)
 
         if with_basemap:
@@ -92,10 +92,9 @@ class CityPlotter():
     def plot_graph_highlight_nodes(self, graph, ax=None, highlight_nodes=None):
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(10, 10))
-        
+
         self.plot_base_graph(graph, ax)
-        
-        
+
         nodes = ox.graph_to_gdfs(nx.MultiDiGraph(graph), edges=False)
         nodes = nodes.to_crs(epsg=3857)
 
@@ -141,14 +140,14 @@ class CityPlotter():
         ax.axis("off")
         return ax
 
-    def plot_network_with_offset(self, graph, network, ax=None, colors=DEFAULT_COLORS, offset_step = 5):
+    def plot_network_with_offset(self, graph, network, ax=None, colors=DEFAULT_COLORS, offset_step=20, plot_nodes=True):
         routes = network.routes
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(10, 10))
 
         self.plot_base_graph(graph, ax)
-        
+
         G = nx.MultiGraph(graph)
 
         for i, route in enumerate(routes):
@@ -157,7 +156,7 @@ class CityPlotter():
             offset = (i - center) * offset_step
 
             geoms = get_route_geometries(G, route)
-            
+
             route_edges = []
             for geom in geoms:
                 if offset != 0:
@@ -173,11 +172,12 @@ class CityPlotter():
 
             gpd.GeoSeries(route_edges).plot(ax=ax, linewidth=2, color=color)
 
-            route_nodes_coords = [(G.nodes[n]['x'], G.nodes[n]['y'])
-                                for n in route]
-            route_nodes_gdf = gpd.GeoDataFrame(
-                geometry=[Point(xy) for xy in route_nodes_coords]
-            )
-            route_nodes_gdf.plot(ax=ax, color=color, markersize=20)
+            if plot_nodes:
+                route_nodes_coords = [(G.nodes[n]['x'], G.nodes[n]['y'])
+                                      for n in route]
+                route_nodes_gdf = gpd.GeoDataFrame(
+                    geometry=[Point(xy) for xy in route_nodes_coords]
+                )
+                route_nodes_gdf.plot(ax=ax, color=color, markersize=20)
 
         ax.axis("off")
