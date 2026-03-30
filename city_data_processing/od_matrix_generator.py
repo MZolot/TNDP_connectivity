@@ -1,3 +1,4 @@
+from scipy.spatial.distance import cdist
 from tqdm.notebook import tqdm
 
 import numpy as np
@@ -34,7 +35,8 @@ def assign_buildings_population(buildings, total_population):
     build_population = impute_buildings(buildings.to_crs(
         32645), default_living_demand=40).to_crs(32645)
     build_population['population'] = 0
-    territory_population = impute_population(build_population, total_population)
+    territory_population = impute_population(
+        build_population, total_population)
 
     build_population['population'] = territory_population['population']
     build_population.sort_values(by=['is_living'])
@@ -179,6 +181,44 @@ def generate_od_matrix(blocks_gdf, services_gdf):
 
     od_matrix = od_matrix * 100
     return od_matrix
+
+
+def generate_od_matrix_ipf(
+    blocks_gdf,
+    services_gdf,
+    alpha=1.0,
+    epsilon=1e-6,
+    max_iter=100,
+    tol=1e-6,
+    background=0.05,
+    threshold=0.1
+):
+    blocks = blocks_gdf.copy()
+    P = blocks['population'].fillna(0).values
+    capacity_per_block = services_gdf.groupby(
+        'block_id')['capacity_part'].sum()
+    blocks['capacity'] = blocks['block_id'].map(capacity_per_block).fillna(0)
+    C = blocks['capacity'].values
+    C = C + epsilon
+    C = C * (P.sum() / C.sum())
+    centroids = blocks.geometry.centroid
+    coords = np.array([[pt.x, pt.y] for pt in centroids])
+    dist_matrix = cdist(coords, coords, metric='euclidean')
+    K = np.exp(-alpha * dist_matrix) + background
+    T = K.copy()
+    for _ in range(max_iter):
+        T_prev = T.copy()
+        row_sums = T.sum(axis=1)
+        T = (T.T * (P / (row_sums + epsilon))).T
+        col_sums = T.sum(axis=0)
+        T = T * (C / (col_sums + epsilon))
+        if np.max(np.abs(T - T_prev)) < tol:
+            break
+    T = (T + T.T) / 2
+    T[T < threshold] = 0
+    od_df = pd.DataFrame(
+        T, index=blocks['block_id'], columns=blocks['block_id'])
+    return od_df
 
 
 def generate_connector_od_matrix(graph, block_od_matrix):
