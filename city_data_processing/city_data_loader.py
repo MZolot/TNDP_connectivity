@@ -1,3 +1,5 @@
+from blocksnet.blocks.postprocessing import postprocess_urban_blocks
+from blocksnet.blocks.cutting import preprocess_urban_objects, cut_urban_blocks
 import pandas as pd
 import geopandas as gpd
 import osmnx as ox
@@ -102,3 +104,59 @@ def get_services_from_osm(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
 def get_services_from_file(filename, crs=CRS):
     data = gpd.read_file(filename)
     return data
+
+
+BC_TAGS = {
+    'roads': {
+        "highway": ["construction", "crossing", "living_street", "motorway", "motorway_link", "motorway_junction", "pedestrian", "primary", "primary_link", "raceway", "residential", "road", "secondary", "secondary_link", "services", "tertiary", "tertiary_link", "track", "trunk", "trunk_link", "turning_circle", "turning_loop", "unclassified",],
+        "service": ["living_street", "emergency_access"]
+    },
+    'railways': {
+        "railway": "rail"
+    },
+    'water': {
+        'riverbank': True,
+        'reservoir': True,
+        'basin': True,
+        'dock': True,
+        'canal': True,
+        'pond': True,
+        'natural': ['water', 'bay'],
+        'waterway': ['river', 'canal', 'ditch'],
+        'landuse': 'basin',
+        'water': 'lake'
+    }
+}
+
+
+def get_blocks_by_blocksnet(boundary_polygon, boundary_gdf, G_roads, use_railways=False, use_waterways=False):
+    _, roads_gdf = ox.graph_to_gdfs(G_roads)
+    roads_gdf = roads_gdf.reset_index()
+    roads_gdf.head(3)
+
+    roads_osm = ox.features_from_polygon(boundary_polygon, BC_TAGS['roads'])
+    roads_osm = roads_osm.reset_index()
+    roads_osm = roads_osm[roads_osm.geom_type.isin(
+        ['LineString', 'MultiLineString'])]
+
+    if use_railways:
+        railways = ox.features_from_polygon(
+            boundary_polygon, BC_TAGS['railways'])
+        railways = railways.reset_index()
+    else:
+        railways = None
+
+    if use_waterways:
+        waterways = ox.features_from_polygon(
+            boundary_polygon, BC_TAGS['water'])
+        waterways = waterways.reset_index()
+    else:
+        waterways = None
+
+    lines_gdf, polygons_gdf = preprocess_urban_objects(
+        roads_osm, railways, waterways)
+    blocks = cut_urban_blocks(boundary_gdf, lines_gdf, polygons_gdf)
+
+    blocks = postprocess_urban_blocks(blocks)
+
+    return blocks
