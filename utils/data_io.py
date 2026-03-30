@@ -139,13 +139,13 @@ def load_ga(filepath: str, tndp: TNDP):
 
 def save_experiment(network, tndp, ga, filepath: str):
     data = {
-        "network": network.to_dict(),
         "tndp_params": tndp.to_dict(),
         "genetic_algorithm": ga.to_dict(),
+        "network": network.to_dict(),
 
-        # "meta": {
-        #     "timestamp": datetime.now().isoformat()
-        # }
+        "meta": {
+            "timestamp": datetime.now().isoformat()
+        }
     }
 
     with open(filepath, "w", encoding="utf-8") as f:
