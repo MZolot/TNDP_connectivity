@@ -12,3 +12,4 @@ cache/
 *.pkl
 *.parquet
 *.npy
+*.qmd
