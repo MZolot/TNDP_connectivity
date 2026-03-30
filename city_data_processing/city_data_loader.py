@@ -3,6 +3,7 @@ from blocksnet.blocks.cutting import preprocess_urban_objects, cut_urban_blocks
 import pandas as pd
 import geopandas as gpd
 import osmnx as ox
+import networkx as nx
 
 from iduedu import get_4326_boundary, get_intermodal_graph, get_drive_graph, get_walk_graph
 
@@ -27,11 +28,36 @@ def get_boundary_from_osm(osm_id):
     return polygon
 
 
+def filter_edges(G, edge_tags):
+    print(f'Filtering edges by tags: {edge_tags}')
+    edges_to_keep = []
+
+    for u, v, k, data in G.edges(keys=True, data=True):
+        highway = data.get('highway')
+
+        if highway is None:
+            continue
+
+        if isinstance(highway, list):
+            if any(h in edge_tags for h in highway):
+                edges_to_keep.append((u, v, k))
+        else:
+            if highway in edge_tags:
+                edges_to_keep.append((u, v, k))
+
+    G_filtered = G.edge_subgraph(edges_to_keep).copy()
+    
+    isolated = list(nx.isolates(G_filtered))
+    G_filtered.remove_nodes_from(isolated)
+    return G_filtered
+
+
 def get_streets_graph(
         boundary_polygon,
         graph_type,
         keep_largest_subgraph=True,
-        clip_by_territory=True):
+        clip_by_territory=True,
+        osm_tags=None):
 
     if graph_type == 'drive':
         graph = get_drive_graph(territory=boundary_polygon,
@@ -46,7 +72,10 @@ def get_streets_graph(
                                      keep_largest_subgraph=keep_largest_subgraph,
                                      clip_by_territory=clip_by_territory)
 
-    return graph
+    if osm_tags is not None:
+        return filter_edges(graph, osm_tags)
+    else:
+        return graph
 
 
 def get_buildings(boundary_polygon):
