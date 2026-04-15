@@ -77,11 +77,8 @@ def get_streets_graph(
     else:
         return graph
 
-
-def get_buildings(boundary_polygon):
-    buildings = ox.features_from_polygon(
-        boundary_polygon, tags={'building': True})
-    buildings = buildings.reset_index(drop=True).to_crs(CRS)
+def process_buildings(buildings):
+    buildings = buildings.reset_index().to_crs(CRS)
 
     buildings['is_living'] = buildings['building'].apply(
         lambda b: b in IS_LIVING_TAGS)
@@ -93,6 +90,17 @@ def get_buildings(boundary_polygon):
     buildings = buildings.to_crs(CRS)
 
     return buildings
+
+
+def get_buildings_from_OSM(boundary_polygon):
+    buildings = ox.features_from_polygon(
+        boundary_polygon, tags={'building': True})
+    return process_buildings(buildings)
+
+
+def get_buildings_from_file(filename):
+    buildings = gpd.read_file(filename)
+    return process_buildings(buildings)
 
 
 def get_services_from_osm(boundary_polygon, tags_dict=SERVICE_OSM_TAGS):
