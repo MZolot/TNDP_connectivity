@@ -45,15 +45,16 @@ class CityPlotter():
         gdf.to_crs(epsg=3857).plot(figsize=(8, 8),
                                    linewidth=3)
 
-    def plot_boundary_on_map(self, gdf, figsize=(8, 8), axis=False):
+    def plot_boundary_on_map(self, gdf, figsize=(8, 8), show_axis=False, basemap = ctx.providers.CartoDB.Positron):
         ax = (gdf.to_crs(epsg=3857)
               .plot(figsize=figsize,
                     edgecolor='red',
                     color='none',
                     linewidth=3))
-        if not axis:
+        if not show_axis:
             ax.set_axis_off()
-        ctx.add_basemap(ax)
+            
+        ctx.add_basemap(ax, source=basemap)
         return ax
 
     def plot_base_graph(self, graph, ax):
@@ -140,7 +141,7 @@ class CityPlotter():
         ax.axis("off")
         return ax
 
-    def plot_network_with_offset(self, graph, network, ax=None, colors=DEFAULT_COLORS, offset_step=20, plot_nodes=True):
+    def plot_network_with_offset(self, graph, network, ax=None, colors=DEFAULT_COLORS, offset_step=20, plot_nodes=True, markersize=5):
         routes = network.routes
 
         if ax is None:
@@ -178,6 +179,6 @@ class CityPlotter():
                 route_nodes_gdf = gpd.GeoDataFrame(
                     geometry=[Point(xy) for xy in route_nodes_coords]
                 )
-                route_nodes_gdf.plot(ax=ax, color=color, markersize=20)
+                route_nodes_gdf.plot(ax=ax, color=color, markersize=markersize)
 
         ax.axis("off")

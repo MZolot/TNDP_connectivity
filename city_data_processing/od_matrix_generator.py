@@ -25,7 +25,7 @@ def assign_services_capacity(services_gdf, capacity_range_dict=SERVICE_CAPACITY_
     return services_gdf
 
 
-def assign_buildings_population(buildings, total_population):
+def assign_buildings_population(buildings, total_population, living_demand = 20):
     buildings_gdf = buildings.to_crs(32645)
     buildings_gdf['area'] = buildings_gdf.to_crs(32645).geometry.area
     buildings_gdf.sort_values(by=['is_living'])
@@ -33,7 +33,7 @@ def assign_buildings_population(buildings, total_population):
         1.0)
 
     build_population = impute_buildings(buildings.to_crs(
-        32645), default_living_demand=40).to_crs(32645)
+        32645), default_living_demand=living_demand).to_crs(32645)
     build_population['population'] = 0
     territory_population = impute_population(
         build_population, total_population)
