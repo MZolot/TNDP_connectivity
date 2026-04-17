@@ -81,7 +81,7 @@ class GeneticAlgorithm:
         p1 = self._tournament_selection(population, k)
         p2 = self._tournament_selection(population, k)
 
-        while p2 is p1:
+        if p2 is p1:
             p2 = self._tournament_selection(population, k)
 
         return p1, p2
@@ -149,10 +149,14 @@ class GeneticAlgorithm:
         ]
         return sorted_pop[:self.elite_size]
 
-    def generate_solution(self):
+    def generate_solution(self, initial_population = None):
         log = GALoggerTxt('log.txt', self)
 
-        population = self._generate_initial_population()
+        if initial_population:
+            population = initial_population
+        else:
+            population = self._generate_initial_population()
+            
         total_best_solution, total_best_fitness = self._get_best_solution(
             population)
         best_solution_gen = 0
