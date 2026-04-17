@@ -7,18 +7,24 @@ from .TNDP import TNDP, TndpNetwork
 class GeneticAlgorithm:
     def __init__(self,
                  tndp: TNDP,
-                 initial_population_size,
-                 initial_population_network_size,
+                 population_size,
+                 initial_network_size,
                  n_generations,
-                 elitism_percent=0.2) -> None:
+                 elitism_percent=0.2,
+                 add_probability=0.5,
+                 replace_probability=0.5,
+                 remove_probability=0.1) -> None:
 
         self.tndp = tndp
-        self.population_size = initial_population_size
-        self.network_size = initial_population_network_size
+        self.population_size = population_size
+        self.network_size = initial_network_size
         self.n_generations = n_generations
         self.elitism_percent = elitism_percent
         self.elite_size = int(
-            initial_population_network_size * elitism_percent)
+            initial_network_size * elitism_percent)
+        self.add_probability = add_probability
+        self.replace_probability = replace_probability
+        self.remove_probability = remove_probability
 
     def __repr__(self) -> str:
         tab = '                  '
@@ -27,7 +33,8 @@ class GeneticAlgorithm:
         network_size = f'Initial network size={self.network_size}'
         n_generations = f'Generations={self.n_generations}'
         elitism_percent = f'Elitism percent={self.elitism_percent}'
-        return f'Genetic algorithm({population_size};\n{tab}{network_size};\n{tab}{n_generations};\n{tab}{elitism_percent})'
+        probabilities = f'Probabilities: {self.add_probability}/{self.replace_probability}/{self.remove_probability}'
+        return f'Genetic algorithm({population_size};\n{tab}{network_size};\n{tab}{n_generations};\n{tab}{elitism_percent};\n{tab}{probabilities})'
 
     def to_dict(self):
         return {
@@ -36,16 +43,22 @@ class GeneticAlgorithm:
             "n_generations": self.n_generations,
             "elitism_percent": self.elitism_percent,
             "elite_size": self.elite_size,
+            "mutation_probabilities": {"add": self.add_probability,
+                                       "replace": self.replace_probability,
+                                       "remove": self.remove_probability}
         }
 
     @classmethod
     def from_dict(cls, data, tndp):
         return cls(
             tndp=tndp,
-            initial_population_size=data["population_size"],
-            initial_population_network_size=data["network_size"],
+            population_size=data["population_size"],
+            initial_network_size=data["network_size"],
             n_generations=data["n_generations"],
-            elitism_percent=data["elitism_percent"]
+            elitism_percent=data["elitism_percent"],
+            add_probability=data["mutation_probabilities"]["add"],
+            replace_probability=data["mutation_probabilities"]["replace"],
+            remove_probability=data["mutation_probabilities"]["remove"]
         )
 
     def _walk_node(self, v):
