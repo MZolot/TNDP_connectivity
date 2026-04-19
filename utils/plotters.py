@@ -45,7 +45,7 @@ class CityPlotter():
         gdf.to_crs(epsg=3857).plot(figsize=(8, 8),
                                    linewidth=3)
 
-    def plot_boundary_on_map(self, gdf, figsize=(8, 8), show_axis=False, basemap = ctx.providers.CartoDB.Positron):
+    def plot_boundary_on_map(self, gdf, figsize=(8, 8), show_axis=False, basemap = ctx.providers.CartoDB.Positron): # type: ignore
         ax = (gdf.to_crs(epsg=3857)
               .plot(figsize=figsize,
                     edgecolor='red',
