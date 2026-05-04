@@ -170,9 +170,17 @@ def load_experiment(filepath,
         od_matrix,
         line_pool
     )
+    
+    data_ga = data["genetic_algorithm"]
+    if not ('mutation_probabilities' in data["genetic_algorithm"].keys()):
+        data_ga['mutation_probabilities'] = {
+            'add': 0.5, 
+            'replace': 0.5, 
+            'remove': 0.1
+        }
 
     ga = GeneticAlgorithm.from_dict(
-        data["genetic_algorithm"],
+        data_ga,
         tndp
     )
 
