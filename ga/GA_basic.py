@@ -162,7 +162,7 @@ class GeneticAlgorithm:
         ]
         return sorted_pop[:self.elite_size]
 
-    def generate_solution(self, initial_population=None, log_file_name='log.txt'):
+    def generate_solution(self, initial_population=None, log_file_name='log.txt', print_log=True):
         log = GALoggerTxt(log_file_name, self)
         log.log_parameters()
 
@@ -178,9 +178,10 @@ class GeneticAlgorithm:
                            population, total_best_fitness)
 
         for gen in range(self.n_generations):
-            print(gen, end=' ')
-            if (gen != 0) and (gen % 10 == 0):
-                print()
+            if print_log:
+                print(gen, end=' ')
+                if (gen != 0) and (gen % 10 == 0):
+                    print()
 
             gen_best_solution, gen_best_fitness = self._get_best_solution(
                 population)
@@ -205,7 +206,8 @@ class GeneticAlgorithm:
 
             population = new_population
 
-        print()
+        if print_log:
+            print()
         log.log_result(total_best_fitness, best_solution_gen,
                        total_best_solution)
 
