@@ -16,7 +16,7 @@ HUMAN_SPEED_M_MIN = (HUMAN_SPEED_KM_H * 1000) / 60
 class TndpNetwork:
     def __init__(self, routes, objective_fitnesses=None, total_fitness=-1):
         self.routes = routes
-        self.total_fintess: float = total_fitness
+        self.total_fitness: float = total_fitness
         self.objective_fitnesses = objective_fitnesses if objective_fitnesses is not None else {}
         self.multimodal_graph: nx.Graph | None = None
 
@@ -24,7 +24,7 @@ class TndpNetwork:
         return len(self.routes)
 
     def __str__(self) -> str:
-        fitness = f'weighted fitness: {self.total_fintess:.0f}'
+        fitness = f'weighted fitness: {self.total_fitness:.0f}'
         objectives = [
             f'{i}: {self.objective_fitnesses[i]:.3f}' for i in self.objective_fitnesses.keys()]
         return f'TNDP network with {len(self.routes)} routes, {fitness}\nobjective fitnesses: {objectives}'
@@ -32,7 +32,7 @@ class TndpNetwork:
     def __repr__(self) -> str:
         tab = '             '
         routes = f'Routes={self.__len__()}'
-        fitness = f'weighted fitness: {self.total_fintess:.0f}'
+        fitness = f'weighted fitness: {self.total_fitness:.0f}'
         objectives = [
             f'{i}: {self.objective_fitnesses[i]:.3f}' for i in self.objective_fitnesses.keys()]
         return f'TNDP Network({routes};\n{tab}{fitness};\n{tab}{objectives})'
@@ -41,7 +41,7 @@ class TndpNetwork:
         return {
             "routes": self.routes,
             "objective_fitnesses": self.objective_fitnesses,
-            "total_fitness": self.total_fintess,
+            "total_fitness": self.total_fitness,
             "num_routes": len(self.routes)
         }
 
@@ -343,8 +343,8 @@ class TNDP:
         return total_connectivity / p
 
     def evaluate_fitness(self, network: TndpNetwork) -> float:
-        if network.total_fintess != -1:
-            return network.total_fintess
+        if network.total_fitness != -1:
+            return network.total_fitness
 
         weighted_time_fitness = self.time_weight * \
             self.evaluate_total_time(network)
@@ -357,12 +357,12 @@ class TNDP:
             weighted_connectivity_fitness = self.connectivity_weight * \
                 self.evaluate_connectivity_real(network)
 
-        total_fintess = weighted_time_fitness + \
+        total_fitness = weighted_time_fitness + \
             weighted_cost_fitness + weighted_connectivity_fitness
 
-        network.total_fintess = total_fintess
+        network.total_fitness = total_fitness
 
-        return total_fintess
+        return total_fitness
 
     def get_connectivity_for_node(self, multimodal_graph, node_id):
         number_of_nodes = len(self.graph.nodes)

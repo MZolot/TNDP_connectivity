@@ -94,8 +94,8 @@ for tested_parameter in experiment_params.keys():
             start = time.perf_counter()
 
             ga = GA.GeneticAlgorithm(tndp,
-                                        initial_population_size=current_params['initial_population_size'],
-                                        initial_population_network_size=current_params['initial_network_size'],
+                                        population_size=current_params['initial_population_size'],
+                                        initial_network_size=current_params['initial_network_size'],
                                         n_generations=current_params['generations'])
             solution, fitness, gen = ga.generate_solution()
             
