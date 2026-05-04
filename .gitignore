@@ -13,3 +13,4 @@ cache/
 *.parquet
 *.npy
 *.qmd
+*.zip

@@ -45,7 +45,11 @@ class CityPlotter():
         gdf.to_crs(epsg=3857).plot(figsize=(8, 8),
                                    linewidth=3)
 
-    def plot_boundary_on_map(self, gdf, figsize=(8, 8), show_axis=False, basemap = ctx.providers.CartoDB.Positron): # type: ignore
+    def plot_boundary_on_map(self, 
+                             gdf, 
+                             figsize=(8, 8), 
+                             show_axis=False, 
+                             basemap=ctx.providers.CartoDB.Positron):  # type: ignore
         ax = (gdf.to_crs(epsg=3857)
               .plot(figsize=figsize,
                     edgecolor='red',
@@ -53,21 +57,22 @@ class CityPlotter():
                     linewidth=3))
         if not show_axis:
             ax.set_axis_off()
-            
+
         ctx.add_basemap(ax, source=basemap)
         return ax
 
-    def plot_base_graph(self, graph, ax):
+    def plot_base_graph(self, graph, ax, plot_nodes=True, node_color='blue'):
         nodes, edges = ox.graph_to_gdfs(nx.MultiDiGraph(graph))
         nodes = nodes.to_crs(epsg=3857)
         edges = edges.to_crs(epsg=3857)
         edges.plot(ax=ax, linewidth=0.5, color="lightgray")
-        nodes.plot(ax=ax, color="blue", markersize=2)
+        if plot_nodes:
+            nodes.plot(ax=ax, color=node_color, markersize=2)
 
     def plot_streets_graph(self,
                            graph,
                            ax=None,
-                           with_basemap=False,
+                           plot_basemap=False,
                            boundary_gdf=None
                            ):
 
@@ -84,7 +89,7 @@ class CityPlotter():
 
         self.plot_base_graph(graph, ax)
 
-        if with_basemap:
+        if plot_basemap:
             ctx.add_basemap(ax)
 
         ax.set_axis_off()
@@ -141,15 +146,24 @@ class CityPlotter():
         ax.axis("off")
         return ax
 
-    def plot_network_with_offset(self, graph, network, ax=None, colors=DEFAULT_COLORS, offset_step=20, plot_nodes=True, markersize=5):
+    def plot_network_with_offset(self,
+                                 network,
+                                 base_graph=None,
+                                 ax=None,
+                                 colors=DEFAULT_COLORS,
+                                 offset_step=20,
+                                 plot_route_nodes=True,
+                                 route_nodes_markersize=5,
+                                 plot_base_nodes=True):
         routes = network.routes
 
         if ax is None:
             _, ax = plt.subplots(1, 1, figsize=(10, 10))
 
-        self.plot_base_graph(graph, ax)
+        if base_graph is not None:
+            self.plot_base_graph(base_graph, ax, plot_nodes=plot_base_nodes)
 
-        G = nx.MultiGraph(graph)
+        G = nx.MultiGraph(base_graph)
 
         for i, route in enumerate(routes):
             color = colors[i % len(colors)]
@@ -173,12 +187,14 @@ class CityPlotter():
 
             gpd.GeoSeries(route_edges).plot(ax=ax, linewidth=2, color=color)
 
-            if plot_nodes:
+            if plot_route_nodes:
                 route_nodes_coords = [(G.nodes[n]['x'], G.nodes[n]['y'])
                                       for n in route]
                 route_nodes_gdf = gpd.GeoDataFrame(
                     geometry=[Point(xy) for xy in route_nodes_coords]
                 )
-                route_nodes_gdf.plot(ax=ax, color=color, markersize=markersize)
+                route_nodes_gdf.plot(ax=ax, color=color,
+                                     markersize=route_nodes_markersize)
 
         ax.axis("off")
+        return ax

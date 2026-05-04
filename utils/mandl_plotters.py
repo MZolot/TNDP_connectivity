@@ -13,15 +13,15 @@ from matplotlib.collections import LineCollection
 
 
 DEFAULT_COLORS = ['red', 'darkorange', 'gold', 'yellow', 'lime',
-          'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
-          'magenta', 'deeppink', 'coral', 'grey', 'black',
-          'purple', 'maroon', 'saddlebrown', 'olive', 'teal',
-          'salmon', 'peru', 'tan', 'palegreen', 'aquamarine',
-          'powderblue', 'royalblue', 'indigo', 'navy', 'plum']
+                  'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
+                  'magenta', 'deeppink', 'coral', 'grey', 'black',
+                  'purple', 'maroon', 'saddlebrown', 'olive', 'teal',
+                  'salmon', 'peru', 'tan', 'palegreen', 'aquamarine',
+                  'powderblue', 'royalblue', 'indigo', 'navy', 'plum']
 
 DEFAULT_COLORS_SHORT = ['red', 'darkorange', 'gold', 'lime',
-                'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
-                'magenta']
+                        'green', 'cyan', 'dodgerblue', 'blue', 'darkviolet',
+                        'magenta']
 
 
 class MandlPlotter():
@@ -183,9 +183,8 @@ class MandlPlotter():
             norm=plt.Normalize(vmin=d_min, vmax=d_max)  # type: ignore
         )
         sm.set_array([])
-        plt.colorbar(sm, ax=ax, label="OD demand")
+        plt.colorbar(sm, ax=ax)
 
-        ax.set_title("OD demand (direct connections)")
         ax.axis("off")
         plt.tight_layout()
         plt.show()
@@ -253,7 +252,10 @@ class NetworkOnMandlPlotter(MandlPlotter):
         plt.axis("off")
         plt.show()
 
-    def plot_routes(self, routes, route_width=3, cell_size=5, with_node_labels=False, cmap=plt.get_cmap("tab20")):
+    def plot_routes(self,
+                    routes, route_width=3, cell_size=5,
+                    with_node_labels=False,
+                    cmap=plt.get_cmap("tab20"), colors=[]):
         n = len(routes)
 
         if n == 1:
@@ -266,7 +268,8 @@ class NetworkOnMandlPlotter(MandlPlotter):
             cell_size * cols, cell_size * rows))
         axes = axes.flatten()
 
-        colors = [cmap(i) for i in range(len(routes))]
+        if len(colors) == 0:
+            colors = [cmap(i) for i in range(len(routes))]
 
         for i, route in enumerate(routes):
             ax = axes[i]
@@ -283,7 +286,7 @@ class NetworkOnMandlPlotter(MandlPlotter):
             )
 
             route_edges = list(zip(route[:-1], route[1:]))
-            
+
             nx.draw_networkx_nodes(
                 self.graph,
                 self.pos,
