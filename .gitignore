@@ -6,6 +6,7 @@ cache/
 *.geojson
 *.txt
 *.png
+*.jpg
 *.csv
 *.gpkg
 *.json
@@ -14,3 +15,4 @@ cache/
 *.npy
 *.qmd
 *.zip
+*.xlsx
