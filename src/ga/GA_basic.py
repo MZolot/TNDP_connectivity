@@ -1,6 +1,6 @@
 import random
 
-from utils.loggers import GALoggerTxt
+from src.utils.loggers import GALoggerTxt
 from .TNDP import TNDP, TndpNetwork
 
 

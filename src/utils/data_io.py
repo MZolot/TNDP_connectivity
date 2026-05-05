@@ -3,8 +3,8 @@ from datetime import datetime
 import json
 import pickle
 
-from ga.TNDP import TndpNetwork, TNDP
-from ga.GA_basic import GeneticAlgorithm
+from src.ga.TNDP import TndpNetwork, TNDP
+from src.ga.GA_basic import GeneticAlgorithm
 
 
 # === ALGORITHM INPUT ===
