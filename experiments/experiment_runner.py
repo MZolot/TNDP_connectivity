@@ -1,7 +1,7 @@
-import Mandl
-import ga.LinePool as lp
-import ga.TNDP as TNDP
-import ga.GA_basic as GA
+import src.Mandl as Mandl
+import src.ga.LinePool as lp
+import src.ga.TNDP as TNDP
+import src.ga.GA_basic as GA
 
 import csv
 import time

@@ -1,4 +1,4 @@
-import Mandl
+import src.Mandl as Mandl
 
 import math
 from collections import defaultdict
