@@ -1,6 +1,3 @@
-from collections import defaultdict
-from typing import cast
-from shapely.geometry.base import BaseGeometry
 import pandas as pd
 import geopandas as gpd
 import numpy as np
@@ -8,7 +5,6 @@ import osmnx as ox
 import networkx as nx
 from sklearn.cluster import DBSCAN
 from shapely.geometry import Point, LineString
-from shapely.ops import split
 from tqdm.auto import tqdm
 
 CRS = 3857
